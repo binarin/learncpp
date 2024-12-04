@@ -1,0 +1,8 @@
+load("@rules_nixpkgs_cc//:cc.bzl", "nixpkgs_cc_configure")
+
+nixpkgs_cc_configure(
+  repository = "@nixpkgs",
+  nix_file_content = "(import <nixpkgs> {}).clang",
+  name = "nixpkgs_config_cc",
+  cc_std='c++23'
+)

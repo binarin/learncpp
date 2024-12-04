@@ -19,9 +19,11 @@
           name = "nixos-unified-template-shell";
           meta.description = "Shell environment for modifying this Nix configuration";
           packages = with pkgs; [
+            clang-tools # goes before clang!
             clang
-            clangd
-            bazel
+            bazel_7
+            llvmPackages.libstdcxxClang
+            bear
           ];
         };
       };
