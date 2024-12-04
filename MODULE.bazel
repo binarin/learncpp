@@ -1,11 +1,12 @@
 module(name = "learncpp")
 
-bazel_dep(name = "rules_nixpkgs_core", version = "0.12.0")
-local_path_override(
-   module_name = "rules_nixpkgs_core",
-   path = "../rules_nixpkgs/core",
+bazel_dep(name = "rules_nixpkgs_core")
+archive_override(
+    module_name="rules_nixpkgs_core",
+    urls = [ "https://github.com/tweag/rules_nixpkgs/archive/4e169eefd4e9cf38a3569e0b463e93f0c7a3c181.zip" ],
+    integrity = "sha256-t+4YGMSBD3+US+wlLw9sjlKM8b2zPlt3lPAttxejdSE=",
+    strip_prefix = "rules_nixpkgs-4e169eefd4e9cf38a3569e0b463e93f0c7a3c181/core",
 )
-
 
 nix_repo = use_extension("@rules_nixpkgs_core//extensions:repository.bzl", "nix_repo")
 nix_repo.file(
@@ -16,18 +17,11 @@ nix_repo.file(
 use_repo(nix_repo, "nixpkgs")
 
 bazel_dep(name = "rules_nixpkgs_cc")
-# Replace by archive_override to download a rules_nixpkgs_cc revision.
-# (rules_nixpkgs_cc is not available on the BCR, yet.)
-#
-# archive_override(
-#     module_name = "rules_nixpkgs_cc",
-#     urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v0.12.0/rules_nixpkgs-0.12.0.tar.gz"],
-#     # integrity = "sha256-1adb04dc0416915fef427757f4272c4f7dacefeceeefc50f683aec7f7e9b787a",
-#     strip_prefix = "rules_nixpkgs-0.12.0/toolchains/cc",
-# )
-local_path_override(
-   module_name = "rules_nixpkgs_cc",
-   path = "../rules_nixpkgs/toolchains/cc",
+archive_override(
+    module_name="rules_nixpkgs_cc",
+    urls = [ "https://github.com/tweag/rules_nixpkgs/archive/4e169eefd4e9cf38a3569e0b463e93f0c7a3c181.zip" ],
+    integrity = "sha256-t+4YGMSBD3+US+wlLw9sjlKM8b2zPlt3lPAttxejdSE=",
+    strip_prefix = "rules_nixpkgs-4e169eefd4e9cf38a3569e0b463e93f0c7a3c181/toolchains/cc",
 )
 
 # TODO remove transitive rules_nixpkgs_cc dependencies.

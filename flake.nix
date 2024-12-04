@@ -24,6 +24,7 @@
             bazel_7
             llvmPackages.libstdcxxClang
             bear
+            bazel-buildtools
           ];
         };
       };
