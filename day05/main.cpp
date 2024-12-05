@@ -12,10 +12,7 @@
 #include <vector>
 #include <ranges>
 #include <set>
-
-template <class Container, typename T = typename Container::value_type> void dump(const Container &cont) {
-  std::copy(cont.begin(), cont.end(), std::ostream_iterator<T>(std::cout, " "));
-}
+#include "lib/lib.hpp"
 
 int main(int argc, char **argv) {
   std::string line{};
