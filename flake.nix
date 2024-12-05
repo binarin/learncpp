@@ -22,9 +22,8 @@
             clang-tools # goes before clang!
             clang
             bazel_7
-            llvmPackages.libstdcxxClang
-            bear
             bazel-buildtools
+            just
           ];
         };
       };
