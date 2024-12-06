@@ -3,4 +3,11 @@ let
   spec = lock.nodes.nixpkgs.locked;
   nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/archive/${spec.rev}.tar.gz";
 in
-import nixpkgs
+opts:
+import nixpkgs ({
+  overlays = [
+    (final: prev: {
+      p-ranav-indicators = final.callPackage ./packages/p-ranav-indicators {};
+    })
+  ];
+} // opts)

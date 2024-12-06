@@ -1,5 +1,8 @@
 cc_binary(
     name = "day06",
     srcs = ["main.cpp"],
-    deps = [ "//lib" ],
+    deps = [
+        "//lib",
+        "@@p-ranav-indicators",
+    ],
 )

@@ -2,6 +2,11 @@
 #include <climits>
 #include <format>
 #include <utility>
+#include "indicators/block_progress_bar.hpp"
+#include "indicators/cursor_control.hpp"
+#include <cstdlib>
+// #define _XOPEN_SOURCE
+#include <wchar.h>
 
 enum class MapBlock {
   Empty,
@@ -142,22 +147,45 @@ int main(int argc, char **argv) {
   }
 
   std::cout << std::format("Visited blocks: {}\n", visited.size());
+  std::cout << std::format("Display width of eyes {}\n",
+                           unicode::display_width("👀"));
+
+  wchar_t buf[1024];
+  int buf_len = std::mbstowcs(buf, "👀", sizeof(buf) - 1);
+  std::cout << std::format("Display width from wcswidth {}\n", wcswidth(buf, buf_len));
+
+  using namespace indicators;
+  indicators::BlockProgressBar bar{
+    option::BarWidth{80},
+    option::ForegroundColor{Color::yellow},
+    option::ShowElapsedTime{true},
+    option::ShowRemainingTime{true},
+    option::MaxProgress{visited.size() - 1},
+  };
 
   int possibleObstructions{0};
-  for (auto extraObstacleCoord : visited
-         | std::views::filter([&](const Coord& c) {return c != initialGuardCoord; }) ) {
+
+  auto cursorGuard = ScopeGuard([]{ show_console_cursor(true); });
+  show_console_cursor(false);
+
+  for (auto extraObstacleCoord :
+       visited | std::views::filter(
+                     [&](const Coord &c) { return c != initialGuardCoord; })) {
+    bar.tick();
+
     auto tmpMap = map;
     tmpMap[extraObstacleCoord] = Obstruction;
-    // dumpCoord(extraObstacleCoord, "Putting obstacle");
     switch (traverseMap(tmpMap, initialGuardCoord, initialGuardDirection)) {
     case TraverseResult::LoopDetected:
-      std::cout << "Loop\n";
       possibleObstructions++;
       break;
     case TraverseResult::OK:
       break;
     }
   }
+  bar.mark_as_completed();
+  show_console_cursor(true);
+
   std::cout << std::format("Possible obstructions: {}\n", possibleObstructions);
 
 }

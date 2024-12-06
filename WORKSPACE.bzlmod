@@ -6,3 +6,26 @@ nixpkgs_cc_configure(
   name = "nixpkgs_config_cc",
   cc_std='c++23'
 )
+
+load("@rules_nixpkgs_core//:nixpkgs.bzl", "nixpkgs_package")
+nixpkgs_package(
+    name = "p-ranav-indicators",
+    nix_file_deps = [ "//:packages/p-ranav-indicators/default.nix" ],
+    nix_file_content = "let pkgs = import <nixpkgs> { config = {}; overlays = []; }; in pkgs.callPackage ./packages/p-ranav-indicators {}",
+    build_file_content = """
+load("@rules_cc//cc:defs.bzl", "cc_library")
+filegroup(
+    name = "include",
+    srcs = glob(["include/**/*.h", "include/**/*.hpp"]),
+    visibility = ["//visibility:public"],
+)
+cc_library(
+    name = "p-ranav-indicators",
+    srcs = [],
+    hdrs = [":include"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+)
+    """,
+    repository = "@nixpkgs",
+)
