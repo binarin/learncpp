@@ -89,9 +89,9 @@ bool is_equation_resolvable_2(const Equation &eq) {
   int num_insertion_points = eq.operands.size() - 1;
   int possible_combinations = pow_i(3, num_insertion_points);
   // std::println("Possible combs total {}", possible_combinations); //
-  int last_comb{0};
+  // int last_comb{0};
   for (int comb = 0; comb < possible_combinations; comb++) {
-    last_comb = comb;
+    // last_comb = comb;
     int64_t total = eq.operands.front();
     std::string total_expr{std::format("{}", total)};
     using res_pair = std::pair<int64_t, std::string*>;
@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
   std::unique_ptr<void, decltype(restore_cursor)> cursor_guard{NULL, restore_cursor};
 
   indicators::BlockProgressBar bar {
-    option::PrefixText{"Detecting equations (base 2) 👀 "},
+    option::PrefixText{"Detecting equations (base 3) 👀 "},
     option::BarWidth{60},
     option::ForegroundColor{Color::yellow},
     option::ShowElapsedTime{true},
