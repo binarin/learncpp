@@ -1,0 +1,419 @@
+commit 6ce367c89d24832deefdbeb4e7ec1316e267f653
+Author: Vaibhav Awale <vaibhav.awale@zivid.com>
+Date:   Thu Jun 27 14:07:47 2024 +0200
+
+    Fix progress bar display when terminal width is too small
+    
+    When the terminal width is too small, we run into problems as mentioned
+    in https://github.com/p-ranav/indicators/issues/132. This PR fixes the
+    problem by keeping track of number of wrapped lines printed by progress
+    bar and erasing those extra wrapped lines before printing progress for
+    next iteration.
+    
+    For multi_progress bar and dynamic_progress bar, we need to move cursor
+    to start before each iteration by summing up number of wrapped lines for
+    each bar. Since each bar's `print_progress` expects cursor to be on last
+    printed line, we move cursor down by number of wrapped lines before
+    printing progress for each bar.
+    
+    I have not yet handled case when `dynamic_progress` option
+    `hide_bar_when_complete` is set.
+    
+    Fixes Issue #132
+
+diff --git a/include/indicators/block_progress_bar.hpp b/include/indicators/block_progress_bar.hpp
+index fcffdaf..aa7047a 100644
+--- a/include/indicators/block_progress_bar.hpp
++++ b/include/indicators/block_progress_bar.hpp
+@@ -4,6 +4,7 @@
+ 
+ #include <indicators/color.hpp>
+ #include <indicators/details/stream_helper.hpp>
++#include <indicators/cursor_control.hpp>
+ 
+ #include <algorithm>
+ #include <atomic>
+@@ -12,8 +13,8 @@
+ #include <indicators/terminal_size.hpp>
+ #include <iomanip>
+ #include <iostream>
+-#include <sstream>
+ #include <mutex>
++#include <sstream>
+ #include <string>
+ #include <thread>
+ #include <tuple>
+@@ -33,7 +34,7 @@ public:
+             typename std::enable_if<details::are_settings_from_tuple<
+                                         Settings, typename std::decay<Args>::type...>::value,
+                                     void *>::type = nullptr>
+-  explicit BlockProgressBar(Args &&... args)
++  explicit BlockProgressBar(Args &&...args)
+       : settings_(details::get<details::ProgressBarOption::foreground_color>(
+                       option::ForegroundColor{Color::unspecified}, std::forward<Args>(args)...),
+                   details::get<details::ProgressBarOption::bar_width>(option::BarWidth{100},
+@@ -123,7 +124,7 @@ public:
+   size_t current() {
+     std::lock_guard<std::mutex> lock{mutex_};
+     return (std::min)(static_cast<size_t>(progress_),
+-                    size_t(get_value<details::ProgressBarOption::max_progress>()));
++                      size_t(get_value<details::ProgressBarOption::max_progress>()));
+   }
+ 
+   bool is_completed() const { return get_value<details::ProgressBarOption::completed>(); }
+@@ -133,6 +134,11 @@ public:
+     print_progress();
+   }
+ 
++  size_t extra_wrapped_lines() {
++    std::lock_guard<std::mutex> lock{mutex_};
++    return extra_wrapped_lines_;
++  }
++
+ private:
+   template <details::ProgressBarOption id>
+   auto get_value() -> decltype((details::get_value<id>(std::declval<Settings &>()).value)) {
+@@ -140,8 +146,8 @@ private:
+   }
+ 
+   template <details::ProgressBarOption id>
+-  auto get_value() const
+-      -> decltype((details::get_value<id>(std::declval<const Settings &>()).value)) {
++  auto
++  get_value() const -> decltype((details::get_value<id>(std::declval<const Settings &>()).value)) {
+     return details::get_value<id>(settings_).value;
+   }
+ 
+@@ -149,6 +155,7 @@ private:
+   float progress_{0.0};
+   std::chrono::time_point<std::chrono::high_resolution_clock> start_time_point_;
+   std::mutex mutex_;
++  size_t extra_wrapped_lines_{0};
+ 
+   template <typename Indicator, size_t count> friend class MultiProgress;
+   template <typename Indicator> friend class DynamicProgress;
+@@ -201,10 +208,9 @@ private:
+ 
+       if (saved_start_time) {
+         auto eta = std::chrono::nanoseconds(
+-            progress_ > 0
+-                ? static_cast<long long>(std::ceil(float(elapsed.count()) *
+-                                                   max_progress / progress_))
+-                : 0);
++            progress_ > 0 ? static_cast<long long>(
++                                std::ceil(float(elapsed.count()) * max_progress / progress_))
++                          : 0);
+         auto remaining = eta > elapsed ? (eta - elapsed) : (elapsed - eta);
+         details::write_duration(os, remaining);
+       } else {
+@@ -244,6 +250,10 @@ public:
+     for (auto &style : get_value<details::ProgressBarOption::font_styles>())
+       details::set_font_style(os, style);
+ 
++    // Need to erase previously written text across multiple lines to solve
++    // issue https://github.com/p-ranav/indicators/issues/132
++    erase_lines(extra_wrapped_lines_);
++
+     const auto prefix_pair = get_prefix_text();
+     const auto prefix_text = prefix_pair.first;
+     const auto prefix_length = prefix_pair.second;
+@@ -267,17 +277,19 @@ public:
+     const auto bar_width = get_value<details::ProgressBarOption::bar_width>();
+     const auto end_length = get_value<details::ProgressBarOption::end>().size();
+     const auto terminal_width = terminal_size().second;
+-    // prefix + bar_width + postfix should be <= terminal_width
+-    const int remaining = terminal_width - (prefix_length + start_length + bar_width + end_length + postfix_length);
++    const auto number_of_characters =
++        prefix_length + start_length + bar_width + end_length + postfix_length;
++    // If prefix + bar_width + postfix > terminal_width, lines will be wrapped
++    const int remaining = terminal_width - number_of_characters;
+     if (prefix_length == -1 || postfix_length == -1) {
+       os << "\r";
+     } else if (remaining > 0) {
+       os << std::string(remaining, ' ') << "\r";
+-    } else if (remaining < 0) {
+-      // Do nothing. Maybe in the future truncate postfix with ...
+     }
+     os.flush();
+ 
++    extra_wrapped_lines_ = details::extra_wrapped_lines(number_of_characters);
++
+     if (progress_ > max_progress) {
+       get_value<details::ProgressBarOption::completed>() = true;
+     }
+diff --git a/include/indicators/cursor_control.hpp b/include/indicators/cursor_control.hpp
+index 641156f..6cf13bb 100644
+--- a/include/indicators/cursor_control.hpp
++++ b/include/indicators/cursor_control.hpp
+@@ -2,6 +2,8 @@
+ #ifndef INDICATORS_CURSOR_CONTROL
+ #define INDICATORS_CURSOR_CONTROL
+ 
++#include <indicators/cursor_movement.hpp>
++
+ #if defined(_MSC_VER)
+ #if !defined(NOMINMAX)
+ #define NOMINMAX
+@@ -61,6 +63,13 @@ static inline void erase_line() {
+ 
+ #endif
+ 
++static inline void erase_lines(size_t lines) {
++  for (size_t i = 0; i < lines; ++i) {
++    erase_line();
++    move_up(1);
++  }
++}
++
+ } // namespace indicators
+ 
+ #endif
+\ No newline at end of file
+diff --git a/include/indicators/details/stream_helper.hpp b/include/indicators/details/stream_helper.hpp
+index 48d06b8..e4d03da 100644
+--- a/include/indicators/details/stream_helper.hpp
++++ b/include/indicators/details/stream_helper.hpp
+@@ -5,6 +5,7 @@
+ #include <indicators/display_width.hpp>
+ #include <indicators/setting.hpp>
+ #include <indicators/termcolor.hpp>
++#include <indicators/terminal_size.hpp>
+ 
+ #include <algorithm>
+ #include <chrono>
+@@ -217,6 +218,21 @@ private:
+   std::string lead;
+ };
+ 
++inline size_t extra_wrapped_lines(size_t number_of_characters)
++{
++  const auto number_of_columns = indicators::terminal_width();
++  if (number_of_columns == 0) {
++    return 0;
++  }
++  
++  const auto extra_lines = number_of_characters / number_of_columns;
++  // cursor does not wrap when writing to the last column
++  if ((extra_lines > 0) && (number_of_characters % number_of_columns) == 0) {
++    return extra_lines-1;
++  }
++  return extra_lines;
++}
++
+ } // namespace details
+ } // namespace indicators
+ 
+diff --git a/include/indicators/dynamic_progress.hpp b/include/indicators/dynamic_progress.hpp
+index 7e50ff6..37b829d 100644
+--- a/include/indicators/dynamic_progress.hpp
++++ b/include/indicators/dynamic_progress.hpp
+@@ -2,13 +2,15 @@
+ #ifndef INDICATORS_DYNAMIC_PROGRESS
+ #define INDICATORS_DYNAMIC_PROGRESS
+ 
+-#include <atomic>
+-#include <functional>
+ #include <indicators/color.hpp>
+ #include <indicators/setting.hpp>
+ #include <indicators/cursor_control.hpp>
+ #include <indicators/cursor_movement.hpp>
+ #include <indicators/details/stream_helper.hpp>
++
++#include <atomic>
++#include <functional>
++#include <numeric>
+ #include <iostream>
+ #include <memory>
+ #include <mutex>
+@@ -104,10 +106,20 @@ public:
+         started_ = true;
+     } else {
+       // Don't hide any bars
+-      if (started_)
+-        move_up(static_cast<int>(total_count_));
++      if (started_) {
++        // move all the way up to start of first progress bar
++        const auto wrapped_lines = std::accumulate(begin(bars_), end(bars_), 0, [](size_t acc, auto &bar) {
++          return acc + bar.get().extra_wrapped_lines();
++        });
++        move_up(total_count_ + wrapped_lines);
++      }
+       for (auto &bar : bars_) {
+-        bar->print_progress(true);
++        auto wrapped_line = bar.get().extra_wrapped_lines();
++        if (wrapped_line > 0) {
++          // for each bar before calling `print_progress`, cursor needs to be on last line that bar printed
++          move_down(wrapped_line);
++        }
++        bar.get().print_progress(true);
+         std::cout << "\n";
+       }
+       if (!started_)
+diff --git a/include/indicators/indeterminate_progress_bar.hpp b/include/indicators/indeterminate_progress_bar.hpp
+index f77dd5a..835204f 100644
+--- a/include/indicators/indeterminate_progress_bar.hpp
++++ b/include/indicators/indeterminate_progress_bar.hpp
+@@ -3,6 +3,7 @@
+ #define INDICATORS_INDETERMINATE_PROGRESS_BAR
+ 
+ #include <indicators/details/stream_helper.hpp>
++#include <indicators/cursor_control.hpp>
+ 
+ #include <algorithm>
+ #include <atomic>
+@@ -138,6 +139,11 @@ public:
+     print_progress();
+   }
+ 
++  size_t extra_wrapped_lines() {
++    std::lock_guard<std::mutex> lock{mutex_};
++    return extra_wrapped_lines_;
++  }
++
+ private:
+   template <details::ProgressBarOption id>
+   auto get_value() -> decltype((details::get_value<id>(std::declval<Settings &>()).value)) {
+@@ -155,6 +161,7 @@ private:
+   Settings settings_;
+   std::chrono::nanoseconds elapsed_;
+   std::mutex mutex_;
++  size_t extra_wrapped_lines_{0};
+ 
+   template <typename Indicator, size_t count> friend class MultiProgress;
+   template <typename Indicator> friend class DynamicProgress;
+@@ -191,6 +198,10 @@ public:
+ 
+     for (auto &style : get_value<details::ProgressBarOption::font_styles>())
+       details::set_font_style(os, style);
++    
++    // Need to erase previously written text across multiple lines to solve
++    // issue https://github.com/p-ranav/indicators/issues/132
++    erase_lines(extra_wrapped_lines_);
+ 
+     const auto prefix_pair = get_prefix_text();
+     const auto prefix_text = prefix_pair.first;
+@@ -217,17 +228,18 @@ public:
+     const auto bar_width = get_value<details::ProgressBarOption::bar_width>();
+     const auto end_length = get_value<details::ProgressBarOption::end>().size();
+     const auto terminal_width = terminal_size().second;
+-    // prefix + bar_width + postfix should be <= terminal_width
+-    const int remaining = terminal_width - (prefix_length + start_length + bar_width + end_length + postfix_length);
++    const auto number_of_characters = prefix_length + start_length + bar_width + end_length + postfix_length;
++    // If prefix + bar_width + postfix > terminal_width, lines will be wrapped
++    const int remaining = terminal_width - number_of_characters;
+     if (prefix_length == -1 || postfix_length == -1) {
+       os << "\r";
+     } else if (remaining > 0) {
+       os << std::string(remaining, ' ') << "\r";
+-    } else if (remaining < 0) {
+-      // Do nothing. Maybe in the future truncate postfix with ...
+     }
+     os.flush();
+ 
++    extra_wrapped_lines_ = details::extra_wrapped_lines(number_of_characters);
++
+     if (get_value<details::ProgressBarOption::completed>() &&
+         !from_multi_progress) // Don't std::endl if calling from MultiProgress
+       os << termcolor::reset << std::endl;
+diff --git a/include/indicators/multi_progress.hpp b/include/indicators/multi_progress.hpp
+index 16a9dc4..a10b550 100644
+--- a/include/indicators/multi_progress.hpp
++++ b/include/indicators/multi_progress.hpp
+@@ -6,6 +6,7 @@
+ #include <iostream>
+ #include <mutex>
+ #include <vector>
++#include <numeric>
+ 
+ #include <indicators/color.hpp>
+ #include <indicators/cursor_movement.hpp>
+@@ -65,9 +66,21 @@ private:
+ public:
+   void print_progress() {
+     std::lock_guard<std::mutex> lock{mutex_};
+-    if (started_)
+-      move_up(count);
++    
++    if (started_) {
++      // move all the way up to start of first progress bar
++      const auto wrapped_lines = std::accumulate(begin(bars_), end(bars_), 0, [](size_t acc, auto &bar) {
++        return acc + bar.get().extra_wrapped_lines();
++      });
++      move_up(count + wrapped_lines);
++    }
++
+     for (auto &bar : bars_) {
++      auto wrapped_line = bar.get().extra_wrapped_lines();
++      if (wrapped_line > 0) {
++        // for each bar before calling `print_progress`, cursor needs to be on last line that bar printed
++        move_down(wrapped_line);
++      }
+       bar.get().print_progress(true);
+       std::cout << "\n";
+     }
+diff --git a/include/indicators/progress_bar.hpp b/include/indicators/progress_bar.hpp
+index ce22957..4fe1aab 100644
+--- a/include/indicators/progress_bar.hpp
++++ b/include/indicators/progress_bar.hpp
+@@ -3,6 +3,7 @@
+ #define INDICATORS_PROGRESS_BAR
+ 
+ #include <indicators/details/stream_helper.hpp>
++#include <indicators/cursor_control.hpp>
+ 
+ #include <algorithm>
+ #include <atomic>
+@@ -180,6 +181,11 @@ public:
+     print_progress();
+   }
+ 
++  size_t extra_wrapped_lines() {
++    std::lock_guard<std::mutex> lock{mutex_};
++    return extra_wrapped_lines_;
++  }
++
+ private:
+   template <details::ProgressBarOption id>
+   auto get_value()
+@@ -198,6 +204,7 @@ private:
+   std::chrono::nanoseconds elapsed_;
+   std::chrono::time_point<std::chrono::high_resolution_clock> start_time_point_;
+   std::mutex mutex_;
++  size_t extra_wrapped_lines_{0};
+ 
+   template <typename Indicator, size_t count> friend class MultiProgress;
+   template <typename Indicator> friend class DynamicProgress;
+@@ -310,6 +317,10 @@ public:
+     for (auto &style : get_value<details::ProgressBarOption::font_styles>())
+       details::set_font_style(os, style);
+ 
++    // Need to erase previously written text across multiple lines to solve
++    // issue https://github.com/p-ranav/indicators/issues/132
++    erase_lines(extra_wrapped_lines_);
++    
+     const auto prefix_pair = get_prefix_text();
+     const auto prefix_text = prefix_pair.first;
+     const auto prefix_length = prefix_pair.second;
+@@ -336,17 +347,18 @@ public:
+     const auto bar_width = get_value<details::ProgressBarOption::bar_width>();
+     const auto end_length = get_value<details::ProgressBarOption::end>().size();
+     const auto terminal_width = terminal_size().second;
+-    // prefix + bar_width + postfix should be <= terminal_width
+-    const int remaining = terminal_width - (prefix_length + start_length + bar_width + end_length + postfix_length);
++    const auto number_of_characters = prefix_length + start_length + bar_width + end_length + postfix_length;
++    // If prefix + bar_width + postfix > terminal_width, lines will be wrapped
++    const int remaining = terminal_width - number_of_characters;
+     if (prefix_length == -1 || postfix_length == -1) {
+       os << "\r";
+     } else if (remaining > 0) {
+       os << std::string(remaining, ' ') << "\r";
+-    } else if (remaining < 0) {
+-      // Do nothing. Maybe in the future truncate postfix with ...
+     }
+     os.flush();
+ 
++    extra_wrapped_lines_ = details::extra_wrapped_lines(number_of_characters);
++
+     if ((type == ProgressType::incremental && progress_ >= max_progress) ||
+         (type == ProgressType::decremental && progress_ <= min_progress)) {
+       get_value<details::ProgressBarOption::completed>() = true;

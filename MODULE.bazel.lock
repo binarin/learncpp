@@ -64,7 +64,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%non_module_dependencies": {
       "general": {
-        "bzlTransitiveDigest": "aI0WumHScGuR1ljzKHQtSdKZGQOKkTMzmR/vNbMu0N4=",
+        "bzlTransitiveDigest": "w87ulYu+zCA7EphhhgMycUgWenQ33ZVv7mQpf2g70y4=",
         "usagesDigest": "4uBes1GzpAP7IRv7hHiK4bN/MAgx5NPPSL544lzRm+M=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -78,7 +78,8 @@
               "nix_flake_lock_file": "@@//:flake.lock",
               "nix_flake_file_deps": {
                 "@@//:packages/p-ranav-indicators/default.nix": "//:packages/p-ranav-indicators/default.nix",
-                "@@//:packages/p-ranav-indicators/display_width.hpp": "//:packages/p-ranav-indicators/display_width.hpp"
+                "@@//:packages/p-ranav-indicators/display_width.hpp": "//:packages/p-ranav-indicators/display_width.hpp",
+                "@@//:packages/p-ranav-indicators/small_terminal_width_fix.patch": "//:packages/p-ranav-indicators/small_terminal_width_fix.patch"
               },
               "package": "p-ranav-indicators",
               "build_file": "@@//:packages/p-ranav-indicators/build_file",

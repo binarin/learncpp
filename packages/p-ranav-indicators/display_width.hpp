@@ -15,6 +15,7 @@ namespace unicode {
     auto locale_restore = [](char *maybe_old) {
       setlocale(LC_ALL, maybe_old ? maybe_old : "");
     };
+
     using locale_scope_t = std::unique_ptr<char, decltype(locale_restore)>;
     locale_scope_t locale_guard(setlocale(LC_ALL, ""), locale_restore);
 

@@ -7,6 +7,7 @@ def p_ranav_indicators():
         nix_flake_file_deps = [
             "//:packages/p-ranav-indicators/default.nix",
             "//:packages/p-ranav-indicators/display_width.hpp",
+            "//:packages/p-ranav-indicators/small_terminal_width_fix.patch",
         ],
         nix_flake_lock_file = "//:flake.lock",
         build_file = "//:packages/p-ranav-indicators/build_file",

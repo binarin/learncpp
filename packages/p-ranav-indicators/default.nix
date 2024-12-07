@@ -1,14 +1,17 @@
-{stdenvNoCC, fetchFromGitHub, lib, ...}:
+{stdenvNoCC, fetchFromGitHub, fetchpatch, lib, ...}:
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "p-ranav-indicators";
-  version = "v2.3";
+  version = "v2.3-dev";
   src = fetchFromGitHub {
     owner = "p-ranav";
     repo = "indicators";
-    rev = "v2.3";
-    hash = "sha256-FA07UbuhsA7HThbyxHxS+V4H5ha0LAXU7sukVfPVpdg=";
+    rev = "9c855c95e7782541a419597242535562fa9e41d7";
+    hash = "sha256-lPkxMdvs8kqEobtMahC6BzJvRR1FOVqSdPH3YDeh6Es=";
   };
-  phases = "unpackPhase installPhase";
+  phases = "unpackPhase patchPhase installPhase";
+  patches = [
+    ./small_terminal_width_fix.patch
+  ];
   installPhase = ''
     mkdir $out
     cp -r include $out/
