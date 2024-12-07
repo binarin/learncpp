@@ -1,0 +1,14 @@
+# -*- bazel-build -*-
+filegroup(
+    name = "include",
+    srcs = glob(["include/**/*.h", "include/**/*.hpp"]),
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "p-ranav-indicators",
+    srcs = [],
+    hdrs = [":include"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+)

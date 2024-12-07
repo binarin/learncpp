@@ -62,6 +62,48 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
+    "//:extensions.bzl%non_module_dependencies": {
+      "general": {
+        "bzlTransitiveDigest": "aI0WumHScGuR1ljzKHQtSdKZGQOKkTMzmR/vNbMu0N4=",
+        "usagesDigest": "4uBes1GzpAP7IRv7hHiK4bN/MAgx5NPPSL544lzRm+M=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "p-ranav-indicators": {
+            "bzlFile": "@@rules_nixpkgs_core~//:nixpkgs.bzl",
+            "ruleClassName": "_nixpkgs_flake_package",
+            "attributes": {
+              "nix_flake_file": "@@//:flake.nix",
+              "nix_flake_lock_file": "@@//:flake.lock",
+              "nix_flake_file_deps": {
+                "@@//:packages/p-ranav-indicators/default.nix": "//:packages/p-ranav-indicators/default.nix",
+                "@@//:packages/p-ranav-indicators/display_width.hpp": "//:packages/p-ranav-indicators/display_width.hpp"
+              },
+              "package": "p-ranav-indicators",
+              "build_file": "@@//:packages/p-ranav-indicators/build_file",
+              "build_file_content": "",
+              "nixopts": [],
+              "quiet": false,
+              "fail_not_supported": true,
+              "legacy_path_syntax": false
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "",
+            "rules_nixpkgs_core",
+            "rules_nixpkgs_core~"
+          ],
+          [
+            "rules_nixpkgs_core~",
+            "bazel_skylib",
+            "bazel_skylib~"
+          ]
+        ]
+      }
+    },
     "@@apple_support~//crosstool:setup.bzl%apple_cc_configure_extension": {
       "general": {
         "bzlTransitiveDigest": "PjIds3feoYE8SGbbIq2SFTZy3zmxeO2tQevJZNDo7iY=",

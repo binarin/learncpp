@@ -24,6 +24,9 @@ archive_override(
     strip_prefix = "rules_nixpkgs-4e169eefd4e9cf38a3569e0b463e93f0c7a3c181/toolchains/cc",
 )
 
+non_module_dependencies = use_extension("//:extensions.bzl", "non_module_dependencies")
+use_repo(non_module_dependencies, "p-ranav-indicators")
+
 # TODO remove transitive rules_nixpkgs_cc dependencies.
 #   Once there is a module extension for the cc toolchain.
 bazel_dep(name = "bazel_skylib", version = "1.7.1")

@@ -155,7 +155,8 @@ int main(int argc, char **argv) {
   std::cout << std::format("Display width from wcswidth {}\n", wcswidth(buf, buf_len));
 
   using namespace indicators;
-  indicators::BlockProgressBar bar{
+  indicators::BlockProgressBar bar {
+    option::PrefixText{"Looking for loops 👀 "},
     option::BarWidth{80},
     option::ForegroundColor{Color::yellow},
     option::ShowElapsedTime{true},

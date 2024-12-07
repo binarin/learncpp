@@ -15,11 +15,14 @@
       imports = [
       ];
       perSystem = { pkgs, ... }: {
+        packages = {
+          p-ranav-indicators = pkgs.callPackage ./packages/p-ranav-indicators {};
+        };
+
         devShells.default = pkgs.mkShell {
-          name = "nixos-unified-template-shell";
-          meta.description = "Shell environment for modifying this Nix configuration";
+          name = "Bazel/C++ devshell";
           packages = with pkgs; [
-            clang-tools # goes before clang!
+            clang-tools # goes before clang! otherwise hooks will mess up path
             clang
             bazel_7
             bazel-buildtools

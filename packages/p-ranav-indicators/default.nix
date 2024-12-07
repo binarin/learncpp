@@ -12,5 +12,6 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   installPhase = ''
     mkdir $out
     cp -r include $out/
+    cp -vf "${./display_width.hpp}" $out/include/indicators/display_width.hpp
   '';
 })
