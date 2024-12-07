@@ -22,12 +22,16 @@
         devShells.default = pkgs.mkShell {
           name = "Bazel/C++ devshell";
           packages = with pkgs; [
-            clang-tools # goes before clang! otherwise hooks will mess up path
-            clang
+            ((pkgs.llvmPackages_19.override {
+              wrapCCWith = args: pkgs.wrapCCWith (args // { gccForLibs = pkgs.gcc14.cc; });
+            }).clang-tools)
             bazel_7
             bazel-buildtools
             just
           ];
+          env = {
+            CLANGD_FLAGS = "--query-driver=${pkgs.lib.getExe pkgs.gcc14}";
+          };
         };
       };
     };
