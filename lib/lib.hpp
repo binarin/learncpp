@@ -17,39 +17,15 @@
 #include <algorithm>
 #include <iostream>
 #include <iterator>
+#include "indicators/block_progress_bar.hpp"
+#include "indicators/cursor_control.hpp"
+
+using namespace std::literals::string_literals;
 
 template <class Container, typename T = typename Container::value_type> void dump(const Container &cont) {
   std::copy(cont.begin(), cont.end(), std::ostream_iterator<T>(std::cout, " "));
 }
 
-class NonCopyable
-{
-private:
-    auto operator=( NonCopyable const& ) -> NonCopyable& = delete;
-    NonCopyable( NonCopyable const& ) = delete;
-public:
-    auto operator=( NonCopyable&& ) -> NonCopyable& = default;
-    NonCopyable() = default;
-    NonCopyable( NonCopyable&& ) = default;
-};
-
-class ScopeGuard : public NonCopyable {
-private:
-  std::function<void()>    cleanup_;
-public:
-  friend
-  void dismiss( ScopeGuard& g ) { g.cleanup_ = []{}; }
-
-  ~ScopeGuard() { cleanup_(); }
-
-  template< class Func >
-  ScopeGuard( Func const& cleanup )
-    : cleanup_( cleanup )
-  {}
-
-  ScopeGuard( ScopeGuard&& other )
-    : cleanup_( std::move( other.cleanup_ ) )
-  { dismiss( other ); }
-};
+std::unique_ptr<indicators::BlockProgressBar, std::function<void(indicators::BlockProgressBar*)>> make_bar(const std::string &prefix, int max_progress);
 
 #endif

@@ -166,8 +166,8 @@ int main(int argc, char **argv) {
 
   int possibleObstructions{0};
 
-  auto cursorGuard = ScopeGuard([]{ show_console_cursor(true); });
-  show_console_cursor(false);
+  auto restore_cursor = [](void* ) { show_console_cursor(true); };
+  std::unique_ptr<void, decltype(restore_cursor)> cursor_guard{(show_console_cursor(false), (void*)NULL), restore_cursor};
 
   for (auto extraObstacleCoord :
        visited | std::views::filter(

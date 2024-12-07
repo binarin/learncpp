@@ -18,8 +18,6 @@
 #include <set>
 #include "lib/lib.hpp"
 #include <print>
-#include "indicators/block_progress_bar.hpp"
-#include "indicators/cursor_control.hpp"
 
 struct Equation {
   long long target = 0;
@@ -133,29 +131,25 @@ int main(int argc, char **argv) {
   }
   std::println("Total number of equations - {}", eqns.size());
 
-  using namespace indicators;
-
-  auto restore_cursor = [](void* ) { show_console_cursor(true); };
-  std::unique_ptr<void, decltype(restore_cursor)> cursor_guard{NULL, restore_cursor};
-
-  indicators::BlockProgressBar bar {
-    option::PrefixText{"Detecting equations (base 3) 👀 "},
-    option::BarWidth{60},
-    option::ForegroundColor{Color::yellow},
-    option::ShowElapsedTime{true},
-    option::ShowRemainingTime{true},
-    option::MaxProgress{eqns.size()},
-  };
-
-  int64_t sum{0};
+  auto bar = make_bar("Detecting equations (base 2) 👀 "s, eqns.size());
+  int64_t sum_1{0};
   for (auto eqn : eqns) {
-    bar.tick();
-    // dump_equation(eqn);
-    if (is_equation_resolvable_2(eqn)) {
-      sum += eqn.target;
+    bar->tick();
+    if (is_equation_resolvable(eqn)) {
+      sum_1 += eqn.target;
     }
   }
-  bar.mark_as_completed();
+  bar.reset();
+  std::println("Result (part 1) {}", sum_1);
 
-  std::println("Result {}", sum);
+  auto bar_2 = make_bar("Detecting equations (base 2) 👀 "s, eqns.size());
+  int64_t sum_2{0};
+  for (auto eqn : eqns) {
+    bar_2->tick();
+    if (is_equation_resolvable_2(eqn)) {
+      sum_2 += eqn.target;
+    }
+  }
+  bar_2.reset();
+  std::println("Result (part 2) {}", sum_2);
 }
