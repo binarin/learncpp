@@ -49,21 +49,17 @@ bool is_equation_resolvable(const Equation &eq) {
   for (int comb = 0; comb < possible_combinations; comb++) {
     // last_comb = comb;
     int64_t total = eq.operands.front();
-    std::string total_expr{std::format("{}", total)};
-    using res_pair = std::pair<int64_t, std::string*>;
-
-    res_pair total_debug = std::make_pair(total, &total_expr);
 
     int remainder = comb;
     for (auto num : std::ranges::drop_view(eq.operands, 1)) {
       int bit = remainder % 2;
       auto op = bit == 1
-                ? [](res_pair& res, int64_t num) { res.first += num; *res.second += std::format(" + {}", num); }
-                : [](res_pair& res, int64_t num) { res.first *= num; *res.second += std::format(" * {}", num); };
+                ? [](int64_t total, int64_t num) { return total + num; }
+                : [](int64_t total, int64_t num) {  return total * num; };
       remainder = remainder / 2;
-      op(total_debug, num);
+      total = op(total, num);
     }
-    if (total_debug.first == eq.target) {
+    if (total == eq.target) {
       // std::println("Found combination ({}): {} = {}", comb, eq.target, *total_debug.second);
       return true;
     }
@@ -86,32 +82,23 @@ uint64_t pow_i(uint64_t b, uint64_t e) {
 bool is_equation_resolvable_2(const Equation &eq) {
   int num_insertion_points = eq.operands.size() - 1;
   int possible_combinations = pow_i(3, num_insertion_points);
-  // std::println("Possible combs total {}", possible_combinations); //
-  // int last_comb{0};
   for (int comb = 0; comb < possible_combinations; comb++) {
-    // last_comb = comb;
     int64_t total = eq.operands.front();
-    std::string total_expr{std::format("{}", total)};
-    using res_pair = std::pair<int64_t, std::string*>;
-
-    res_pair total_debug = std::make_pair(total, &total_expr);
 
     int remainder = comb;
     for (auto num : std::ranges::drop_view(eq.operands, 1)) {
       int bit = remainder % 3;
       auto op =
-        (bit == 0) ? [](res_pair& res, int64_t num) { res.first += num; *res.second += std::format(" + {}", num); } :
-        (bit == 1) ? [](res_pair& res, int64_t num) { res.first *= num; *res.second += std::format(" * {}", num); } :
-        [](res_pair& res, int64_t num) { res.first = std::stoll(std::format("{}{}", res.first, num)); *res.second += std::format(" || {}", num); };
+        (bit == 0) ? [](uint64_t total, int64_t num) { return total + num; } :
+        (bit == 1) ? [](uint64_t total, int64_t num) { return total * num; } :
+                     [](uint64_t total, int64_t num) { return static_cast<uint64_t>(std::stoll(std::format("{}{}", total, num))); };
       remainder = remainder / 3;
-      op(total_debug, num);
+      total = op(total, num);
     }
-    if (total_debug.first == eq.target) {
-      // std::println("Found combination ({}): {} = {}", comb, eq.target, *total_debug.second);
+    if (total == eq.target) {
       return true;
     }
   }
-  // std::println("Failed after trying the final {} comb", last_comb);
   return false;
 }
 
