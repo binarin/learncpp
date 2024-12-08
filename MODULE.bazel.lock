@@ -62,32 +62,23 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
-    "//:extensions.bzl%non_module_dependencies": {
+    "//:extensions.bzl%nixpkgs_from_flake": {
       "general": {
-        "bzlTransitiveDigest": "w87ulYu+zCA7EphhhgMycUgWenQ33ZVv7mQpf2g70y4=",
-        "usagesDigest": "4uBes1GzpAP7IRv7hHiK4bN/MAgx5NPPSL544lzRm+M=",
+        "bzlTransitiveDigest": "fFjph8DNZ3E5YlMQ0mBwb+N2H32aC6HVtuMvCZH3SQ0=",
+        "usagesDigest": "66JzhK4uAJSJb9GdTu37fWC8bFQkjaqtR3QyRF1avcU=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
-        "envVariables": {},
+        "envVariables": {
+          "FLAKE_SELF": "path:/nix/store/x90glgrllz3fz1vlvj69qg85wrvimsix-source?narHash=sha256-J6e9srf8H4B5DF4BSdInph/Hr/chpjyDf7QALA6CZpQ="
+        },
         "generatedRepoSpecs": {
-          "p-ranav-indicators": {
+          "nixpkgs": {
             "bzlFile": "@@rules_nixpkgs_core~//:nixpkgs.bzl",
-            "ruleClassName": "_nixpkgs_flake_package",
+            "ruleClassName": "_nixpkgs_local_repository",
             "attributes": {
-              "nix_flake_file": "@@//:flake.nix",
-              "nix_flake_lock_file": "@@//:flake.lock",
-              "nix_flake_file_deps": {
-                "@@//:packages/p-ranav-indicators/default.nix": "//:packages/p-ranav-indicators/default.nix",
-                "@@//:packages/p-ranav-indicators/display_width.hpp": "//:packages/p-ranav-indicators/display_width.hpp",
-                "@@//:packages/p-ranav-indicators/small_terminal_width_fix.patch": "//:packages/p-ranav-indicators/small_terminal_width_fix.patch"
-              },
-              "package": "p-ranav-indicators",
-              "build_file": "@@//:packages/p-ranav-indicators/build_file",
-              "build_file_content": "",
-              "nixopts": [],
-              "quiet": false,
-              "fail_not_supported": true,
-              "legacy_path_syntax": false
+              "unmangled_name": "nixpkgs",
+              "nix_file_deps": [],
+              "nix_file_content": "(builtins.getFlake \"path:/nix/store/x90glgrllz3fz1vlvj69qg85wrvimsix-source?narHash=sha256-J6e9srf8H4B5DF4BSdInph/Hr/chpjyDf7QALA6CZpQ=\").legacyPackages.\"x86_64-linux\".nixpkgsForBazelFn"
             }
           }
         },
@@ -150,24 +141,66 @@
         "recordedRepoMappingEntries": []
       }
     },
+    "@@rules_nixpkgs_core~//extensions:package.bzl%nix_pkg": {
+      "general": {
+        "bzlTransitiveDigest": "hTCm7+9v5sbRYbPKVIIrk8bPmbrVOU3YlIeguap28NU=",
+        "usagesDigest": "vSLeAs7NWD7h+4TcAk5f2Wv35W4CJBr2+3vRDEzDin4=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "p-ranav-indicators": {
+            "bzlFile": "@@rules_nixpkgs_core~//:nixpkgs.bzl",
+            "ruleClassName": "_nixpkgs_package",
+            "attributes": {
+              "unmangled_name": "p-ranav-indicators",
+              "attribute_path": "p-ranav-indicators",
+              "nix_file_deps": {},
+              "nix_file_content": "",
+              "repository": "@@_main~nixpkgs_from_flake~nixpkgs//:nixpkgs",
+              "repositories": {},
+              "build_file": "@@//:packages/p-ranav-indicators/build_file",
+              "build_file_content": "",
+              "nixopts": [],
+              "quiet": false,
+              "fail_not_supported": true
+            }
+          }
+        },
+        "moduleExtensionMetadata": {
+          "explicitRootModuleDirectDeps": [
+            "p-ranav-indicators"
+          ],
+          "explicitRootModuleDirectDevDeps": [],
+          "useAllRepos": "NO",
+          "reproducible": false
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "rules_nixpkgs_core~",
+            "bazel_skylib",
+            "bazel_skylib~"
+          ]
+        ]
+      }
+    },
     "@@rules_nixpkgs_core~//extensions:repository.bzl%nix_repo": {
       "general": {
         "bzlTransitiveDigest": "CWtuod3956G4/5BvBj2F77jKO0zC+piQoFNAzHuSei8=",
-        "usagesDigest": "0qMmE8ugInT1BRi1yYjB9w3QzGnRfccLPCV980heZU0=",
+        "usagesDigest": "UVY4tlfBYz/CODfvmADL90fZ1mvfmpvw19W8DD7o2bc=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "nixpkgs": {
             "bzlFile": "@@rules_nixpkgs_core~//:nixpkgs.bzl",
-            "ruleClassName": "_nixpkgs_local_repository",
+            "ruleClassName": "_nixpkgs_http_repository",
             "attributes": {
               "unmangled_name": "nixpkgs",
-              "nix_file": "@@//:nixpkgs.nix",
-              "nix_file_deps": [
-                "@@//:flake.lock"
-              ],
-              "nix_file_content": ""
+              "url": "https://github.com/NixOS/nixpkgs/archive/refs/tags/24.05.tar.gz",
+              "strip_prefix": "nixpkgs-24.05",
+              "integrity": "",
+              "sha256": "911314b81780f26fdaf87e17174210bdbd40c86bac1795212f257cdc236a1e78"
             }
           }
         },

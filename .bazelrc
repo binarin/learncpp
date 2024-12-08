@@ -1,3 +1,4 @@
-common --enable_bzlmod
+# always --workspace_status_command "bash ./bazel-workspace-status.sh"
 build --host_platform=@rules_nixpkgs_core//platforms:host
 build --crosstool_top=@nixpkgs_config_cc//:toolchain
+build --compilation_mode=dbg

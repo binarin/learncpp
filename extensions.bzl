@@ -1,22 +1,13 @@
-load("@rules_nixpkgs_core//:nixpkgs.bzl", "nixpkgs_flake_package")
+load("@rules_nixpkgs_core//:nixpkgs.bzl", "nixpkgs_local_repository")
 
-def p_ranav_indicators():
-    nixpkgs_flake_package(
-        name = "p-ranav-indicators",
-        nix_flake_file = "//:flake.nix",
-        nix_flake_file_deps = [
-            "//:packages/p-ranav-indicators/default.nix",
-            "//:packages/p-ranav-indicators/display_width.hpp",
-            "//:packages/p-ranav-indicators/small_terminal_width_fix.patch",
-        ],
-        nix_flake_lock_file = "//:flake.lock",
-        build_file = "//:packages/p-ranav-indicators/build_file",
-        package = "p-ranav-indicators",
+def _nixpkgs_from_flake_impl(module_ctx):
+    flake_self = module_ctx.os.environ.get("FLAKE_SELF", "!MUST_BE_SET!")
+    nixpkgs_local_repository(
+        name = "nixpkgs",
+        nix_file_content = '''(builtins.getFlake "{}").legacyPackages."x86_64-linux".nixpkgsForBazelFn'''.format(flake_self),
     )
 
-def _non_module_dependencies_impl(_ctx):
-    p_ranav_indicators()
-
-non_module_dependencies = module_extension(
-    implementation = _non_module_dependencies_impl,
+nixpkgs_from_flake = module_extension(
+    implementation = _nixpkgs_from_flake_impl,
+    environ = [ "FLAKE_SELF" ],
 )

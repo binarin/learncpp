@@ -2,30 +2,36 @@ module(name = "learncpp")
 
 bazel_dep(name = "rules_nixpkgs_core")
 archive_override(
-    module_name="rules_nixpkgs_core",
-    urls = [ "https://github.com/tweag/rules_nixpkgs/archive/4e169eefd4e9cf38a3569e0b463e93f0c7a3c181.zip" ],
+    module_name = "rules_nixpkgs_core",
     integrity = "sha256-t+4YGMSBD3+US+wlLw9sjlKM8b2zPlt3lPAttxejdSE=",
     strip_prefix = "rules_nixpkgs-4e169eefd4e9cf38a3569e0b463e93f0c7a3c181/core",
+    urls = ["https://github.com/tweag/rules_nixpkgs/archive/4e169eefd4e9cf38a3569e0b463e93f0c7a3c181.zip"],
 )
 
-nix_repo = use_extension("@rules_nixpkgs_core//extensions:repository.bzl", "nix_repo")
-nix_repo.file(
-    name = "nixpkgs",
-    file = "//:nixpkgs.nix",
-    file_deps = ["//:flake.lock"],
+nixpkgs_from_flake = use_extension("//:extensions.bzl", "nixpkgs_from_flake")
+use_repo(nixpkgs_from_flake, "nixpkgs")
+
+# nix_repo = use_extension("@rules_nixpkgs_core//extensions:repository.bzl", "nix_repo")
+# nix_repo.default(name = "nixpkgs")
+# use_repo(nix_repo, "nixpkgs")
+# override_repo(nix_repo, nixpkgs = "nixpkgs-from-flake")
+nix_pkg = use_extension("@rules_nixpkgs_core//extensions:package.bzl", "nix_pkg")
+nix_pkg.attr(
+    attr = "p-ranav-indicators",
+    repo = "@nixpkgs",
+    build_file = "//:packages/p-ranav-indicators/build_file",
 )
-use_repo(nix_repo, "nixpkgs")
+use_repo(nix_pkg, "p-ranav-indicators")
 
 bazel_dep(name = "rules_nixpkgs_cc")
 archive_override(
-    module_name="rules_nixpkgs_cc",
-    urls = [ "https://github.com/tweag/rules_nixpkgs/archive/4e169eefd4e9cf38a3569e0b463e93f0c7a3c181.zip" ],
+    module_name = "rules_nixpkgs_cc",
     integrity = "sha256-t+4YGMSBD3+US+wlLw9sjlKM8b2zPlt3lPAttxejdSE=",
     strip_prefix = "rules_nixpkgs-4e169eefd4e9cf38a3569e0b463e93f0c7a3c181/toolchains/cc",
+    urls = ["https://github.com/tweag/rules_nixpkgs/archive/4e169eefd4e9cf38a3569e0b463e93f0c7a3c181.zip"],
 )
 
-non_module_dependencies = use_extension("//:extensions.bzl", "non_module_dependencies")
-use_repo(non_module_dependencies, "p-ranav-indicators")
+
 
 # TODO remove transitive rules_nixpkgs_cc dependencies.
 #   Once there is a module extension for the cc toolchain.
@@ -37,9 +43,8 @@ bazel_dep(name = "rules_cc", version = "0.0.9")
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 git_override(
     module_name = "hedron_compile_commands",
-    remote = "https://github.com/hedronvision/bazel-compile-commands-extractor.git",
     commit = "4f28899228fb3ad0126897876f147ca15026151e",
+    remote = "https://github.com/hedronvision/bazel-compile-commands-extractor.git",
     # Replace the commit hash (above) with the latest (https://github.com/hedronvision/bazel-compile-commands-extractor/commits/main).
     # Even better, set up Renovate and let it do the work for you (see "Suggestion: Updates" in the README).
 )
-
