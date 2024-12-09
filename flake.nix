@@ -1,12 +1,13 @@
 {
   description = "A very basic flake";
 
-  inputs = {
-    nixpkgs.url = "nixpkgs";
-    flake-parts.url = "flake-parts";
-    flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
-    flake-compat.url = "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz";
-  };
+  inputs.nixpkgs.url = "nixpkgs";
+
+  inputs.flake-parts.url = "flake-parts";
+  inputs.flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
+
+  inputs.rules_nixpkgs.url = "github:tweag/rules_nixpkgs";
+  inputs.rules_nixpkgs.flake = false;
 
   outputs = inputs:
     let
@@ -53,8 +54,13 @@
             bazel-buildtools
             just
           ];
+          shellHook = ''
+            cat <<'EOF' > .flake.bazelrc
+            common --override_module=rules_nixpkgs_core="${inputs.rules_nixpkgs}/core"
+            common --override_module=rules_nixpkgs_cc="${inputs.rules_nixpkgs}/toolchains/cc"
+            EOF
+          '';
           env = {
-            # CLANGD_FLAGS = "--query-driver=${pkgs.lib.getExe pkgs.gcc14}";
             FLAKE_SELF = "path:${inputs.self}?narHash=${inputs.self.narHash}";
           };
         };

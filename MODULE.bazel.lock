@@ -64,25 +64,30 @@
   "moduleExtensions": {
     "//:extensions.bzl%nixpkgs_from_flake": {
       "general": {
-        "bzlTransitiveDigest": "fFjph8DNZ3E5YlMQ0mBwb+N2H32aC6HVtuMvCZH3SQ0=",
+        "bzlTransitiveDigest": "hSKQT+7c64n+1Ezhukc1dgvqUpsKmlbnU6eicHLF930=",
         "usagesDigest": "66JzhK4uAJSJb9GdTu37fWC8bFQkjaqtR3QyRF1avcU=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {
-          "FLAKE_SELF": "path:/nix/store/x90glgrllz3fz1vlvj69qg85wrvimsix-source?narHash=sha256-J6e9srf8H4B5DF4BSdInph/Hr/chpjyDf7QALA6CZpQ="
+          "FLAKE_SELF": "path:/nix/store/984fyb4rcy4cs7mqf0py83wv5y2hrrj4-source?narHash=sha256-EzSRBWB7Ggc0W5+nQcW2iHzTiYeofFUsT9phaKg455k="
         },
         "generatedRepoSpecs": {
-          "nixpkgs": {
+          "nixpkgs-from-flake": {
             "bzlFile": "@@rules_nixpkgs_core~//:nixpkgs.bzl",
             "ruleClassName": "_nixpkgs_local_repository",
             "attributes": {
-              "unmangled_name": "nixpkgs",
+              "unmangled_name": "nixpkgs-from-flake",
               "nix_file_deps": [],
-              "nix_file_content": "(builtins.getFlake \"path:/nix/store/x90glgrllz3fz1vlvj69qg85wrvimsix-source?narHash=sha256-J6e9srf8H4B5DF4BSdInph/Hr/chpjyDf7QALA6CZpQ=\").legacyPackages.\"x86_64-linux\".nixpkgsForBazelFn"
+              "nix_file_content": "(builtins.getFlake \"path:/nix/store/984fyb4rcy4cs7mqf0py83wv5y2hrrj4-source?narHash=sha256-EzSRBWB7Ggc0W5+nQcW2iHzTiYeofFUsT9phaKg455k=\").legacyPackages.\"x86_64-linux\".nixpkgsForBazelFn"
             }
           }
         },
         "recordedRepoMappingEntries": [
+          [
+            "",
+            "bazel_tools",
+            "bazel_tools"
+          ],
           [
             "",
             "rules_nixpkgs_core",
@@ -144,7 +149,7 @@
     "@@rules_nixpkgs_core~//extensions:package.bzl%nix_pkg": {
       "general": {
         "bzlTransitiveDigest": "hTCm7+9v5sbRYbPKVIIrk8bPmbrVOU3YlIeguap28NU=",
-        "usagesDigest": "vSLeAs7NWD7h+4TcAk5f2Wv35W4CJBr2+3vRDEzDin4=",
+        "usagesDigest": "+IPsOFbCrBDgNYie6WtxeKP9/jb6q0MTGHSMUkFIe4Y=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -157,7 +162,7 @@
               "attribute_path": "p-ranav-indicators",
               "nix_file_deps": {},
               "nix_file_content": "",
-              "repository": "@@_main~nixpkgs_from_flake~nixpkgs//:nixpkgs",
+              "repository": "@@rules_nixpkgs_core~~nix_repo~nixpkgs//:nixpkgs",
               "repositories": {},
               "build_file": "@@//:packages/p-ranav-indicators/build_file",
               "build_file_content": "",
@@ -187,20 +192,19 @@
     "@@rules_nixpkgs_core~//extensions:repository.bzl%nix_repo": {
       "general": {
         "bzlTransitiveDigest": "CWtuod3956G4/5BvBj2F77jKO0zC+piQoFNAzHuSei8=",
-        "usagesDigest": "UVY4tlfBYz/CODfvmADL90fZ1mvfmpvw19W8DD7o2bc=",
+        "usagesDigest": "Js/T4hOlIoDTSE1UHRyMYXcUpARL0nXsZOBTdoeOanQ=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "nixpkgs": {
             "bzlFile": "@@rules_nixpkgs_core~//:nixpkgs.bzl",
-            "ruleClassName": "_nixpkgs_http_repository",
+            "ruleClassName": "_nixpkgs_local_repository",
             "attributes": {
               "unmangled_name": "nixpkgs",
-              "url": "https://github.com/NixOS/nixpkgs/archive/refs/tags/24.05.tar.gz",
-              "strip_prefix": "nixpkgs-24.05",
-              "integrity": "",
-              "sha256": "911314b81780f26fdaf87e17174210bdbd40c86bac1795212f257cdc236a1e78"
+              "nix_file": "@@_main~nixpkgs_from_flake~nixpkgs-from-flake//:nixpkgs-from-flake",
+              "nix_file_deps": [],
+              "nix_file_content": ""
             }
           }
         },

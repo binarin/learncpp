@@ -1,37 +1,24 @@
 module(name = "learncpp")
 
 bazel_dep(name = "rules_nixpkgs_core")
-archive_override(
-    module_name = "rules_nixpkgs_core",
-    integrity = "sha256-t+4YGMSBD3+US+wlLw9sjlKM8b2zPlt3lPAttxejdSE=",
-    strip_prefix = "rules_nixpkgs-4e169eefd4e9cf38a3569e0b463e93f0c7a3c181/core",
-    urls = ["https://github.com/tweag/rules_nixpkgs/archive/4e169eefd4e9cf38a3569e0b463e93f0c7a3c181.zip"],
-)
+bazel_dep(name = "rules_nixpkgs_cc")
 
 nixpkgs_from_flake = use_extension("//:extensions.bzl", "nixpkgs_from_flake")
-use_repo(nixpkgs_from_flake, "nixpkgs")
+use_repo(nixpkgs_from_flake, "nixpkgs-from-flake")
 
-# nix_repo = use_extension("@rules_nixpkgs_core//extensions:repository.bzl", "nix_repo")
-# nix_repo.default(name = "nixpkgs")
-# use_repo(nix_repo, "nixpkgs")
-# override_repo(nix_repo, nixpkgs = "nixpkgs-from-flake")
+nix_repo = use_extension("@rules_nixpkgs_core//extensions:repository.bzl", "nix_repo")
+nix_repo.file(
+    name = "nixpkgs",
+    file = "@nixpkgs-from-flake",
+)
+use_repo(nix_repo, "nixpkgs")
+
 nix_pkg = use_extension("@rules_nixpkgs_core//extensions:package.bzl", "nix_pkg")
 nix_pkg.attr(
     attr = "p-ranav-indicators",
-    repo = "@nixpkgs",
     build_file = "//:packages/p-ranav-indicators/build_file",
 )
 use_repo(nix_pkg, "p-ranav-indicators")
-
-bazel_dep(name = "rules_nixpkgs_cc")
-archive_override(
-    module_name = "rules_nixpkgs_cc",
-    integrity = "sha256-t+4YGMSBD3+US+wlLw9sjlKM8b2zPlt3lPAttxejdSE=",
-    strip_prefix = "rules_nixpkgs-4e169eefd4e9cf38a3569e0b463e93f0c7a3c181/toolchains/cc",
-    urls = ["https://github.com/tweag/rules_nixpkgs/archive/4e169eefd4e9cf38a3569e0b463e93f0c7a3c181.zip"],
-)
-
-
 
 # TODO remove transitive rules_nixpkgs_cc dependencies.
 #   Once there is a module extension for the cc toolchain.
