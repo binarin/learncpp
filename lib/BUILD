@@ -2,6 +2,7 @@ cc_library(
     name = "lib",
     hdrs = [
         "lib.hpp",
+        "coord.h",
     ],
     srcs = [
         "lib.cpp",

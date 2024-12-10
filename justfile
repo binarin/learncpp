@@ -9,3 +9,9 @@ ds day sample="":
 
 di day:
     bazel run "//day$(printf "%02d" "{{ day }}")" < "day$(printf "%02d" "{{ day }}")/input.txt"
+
+dbg day:
+    #!/usr/bin/env bash
+    day="day$(printf "%02d" "{{ day }}")"
+    bazel build "//$day"
+    exec gdb -i=mi "bazel-bin/$day/$day"

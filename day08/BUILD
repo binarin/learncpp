@@ -3,5 +3,6 @@ cc_binary(
     srcs = ["main.cpp"],
     deps = [
         "//lib",
+        "@p-ranav-indicators",
     ],
 )
