@@ -25,4 +25,17 @@ struct Coord2D {
     y -= other.y;
     return *this;
   }
+
+  inline Coord2D up() const {
+    return {x, y - 1};
+  };
+  inline Coord2D down() const {
+    return {x, y + 1};
+  };
+  inline Coord2D left() const {
+    return {x - 1, y};
+  };
+  inline Coord2D right() const {
+    return {x + 1, y};
+  };
 };
