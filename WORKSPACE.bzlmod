@@ -4,7 +4,8 @@ load("@rules_nixpkgs_cc//:cc.bzl", "nixpkgs_cc_configure")
 
 nixpkgs_cc_configure(
   repository = "@nixpkgs",
-  attribute_path = "clang_19_withGcc14",
+  # attribute_path = "llvmPackages_19.libcxxClang",
+  attribute_path = "clang_19_withCxxGcc14",
   name = "nixpkgs_config_cc",
-  cc_std='c++23'
+  cc_std='c++26'
 )

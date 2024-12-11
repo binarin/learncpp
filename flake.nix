@@ -20,10 +20,10 @@
             overlays = [
               (final: prev: {
                 p-ranav-indicators = final.callPackage ./packages/p-ranav-indicators {};
-                llvmPackages_19_withGcc14 = prev.llvmPackages_19.override {
+                llvmPackages_19_withCxxGcc14 = prev.llvmPackages_19.override {
                   wrapCCWith = args: prev.wrapCCWith (args // { gccForLibs = prev.gcc14.cc; });
                 };
-                clang_19_withGcc14 = final.llvmPackages_19_withGcc14.clang;
+                clang_19_withCxxGcc14 = final.llvmPackages_19_withCxxGcc14.clang;
               })
             ] ++ overlays;
           }
@@ -47,9 +47,10 @@
         devShells.default = pkgs.mkShell {
           name = "Bazel/C++ devshell";
           packages = with pkgs; [
-            ((pkgs.llvmPackages_19.override {
-              wrapCCWith = args: pkgs.wrapCCWith (args // { gccForLibs = pkgs.gcc14.cc; });
-            }).clang-tools)
+            # ((pkgs.llvmPackages_19.override {
+            #   wrapCCWith = args: pkgs.wrapCCWith (args // { gccForLibs = pkgs.gcc14.cc; });
+            # }).clang-tools)
+            pkgs.llvmPackages_19.clang-tools
             bazel_7
             bazel-buildtools
             just
