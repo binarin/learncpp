@@ -50,7 +50,8 @@
             # ((pkgs.llvmPackages_19.override {
             #   wrapCCWith = args: pkgs.wrapCCWith (args // { gccForLibs = pkgs.gcc14.cc; });
             # }).clang-tools)
-            pkgs.llvmPackages_19.clang-tools
+            # pkgs.llvmPackages_19.clang-tools
+            llvmPackages_19_withCxxGcc14.clang-tools
             bazel_7
             bazel-buildtools
             just

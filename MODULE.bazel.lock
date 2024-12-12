@@ -69,7 +69,7 @@
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {
-          "FLAKE_SELF": "path:/nix/store/9bcqhfvd9h4l4aifmg3m3mwdnnq982i6-source?narHash=sha256-CqNqfrC3Db3CREiiZ7foyQbkP/nLo4xYXMnEHfv/qy8="
+          "FLAKE_SELF": "path:/nix/store/cbl41jgpqipykwsmlc94amlbmkafgypk-source?narHash=sha256-VQeea252Xy2eChliWnTMjkT8s6jb7Y35Ht3I49ByBTo="
         },
         "generatedRepoSpecs": {
           "nixpkgs-from-flake": {
@@ -78,7 +78,7 @@
             "attributes": {
               "unmangled_name": "nixpkgs-from-flake",
               "nix_file_deps": [],
-              "nix_file_content": "(builtins.getFlake \"path:/nix/store/9bcqhfvd9h4l4aifmg3m3mwdnnq982i6-source?narHash=sha256-CqNqfrC3Db3CREiiZ7foyQbkP/nLo4xYXMnEHfv/qy8=\").legacyPackages.\"x86_64-linux\".nixpkgsForBazelFn"
+              "nix_file_content": "(builtins.getFlake \"path:/nix/store/cbl41jgpqipykwsmlc94amlbmkafgypk-source?narHash=sha256-VQeea252Xy2eChliWnTMjkT8s6jb7Y35Ht3I49ByBTo=\").legacyPackages.\"x86_64-linux\".nixpkgsForBazelFn"
             }
           }
         },
