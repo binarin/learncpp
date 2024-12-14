@@ -3,6 +3,7 @@
 #include <iostream>
 #include <regex>
 #include <string>
+#include <ranges>
 #include <vector>
 #include <print>
 
@@ -41,12 +42,14 @@ struct Robot {
 
   std::optional<int> quadrant_at(int seconds) {
     Coord2D cur = coord_at(seconds);
-    if (cur.x == bounds.x / 2 || cur.y == bounds.x / 2) {
+    if (cur.x == (bounds.x / 2) || cur.y == (bounds.y / 2)) {
       return {};
     }
     bool x_quad = cur.x > (bounds.x / 2);
     bool y_quad = cur.y > (bounds.y / 2);
-    return ((x_quad << 0) & (y_quad << 1));
+    int result = (x_quad << 0) | (y_quad << 1);
+    std::println("{} quad {} - limits {}, xq {}, yq {}", cur, result, Coord2D{bounds.x / 2, bounds.y / 2}, x_quad, y_quad);
+    return result;
   }
 };
 
@@ -68,11 +71,11 @@ int main(int argc, char **argv) {
   for (auto robot : robots) {
     Coord2D after_100 = robot.coord_at(100);
     occupied[after_100]++;
-    // std::println("{}", robot.coord_at(100));
-    // robot.quadrant_at(100).and_then([&](int quadrant) {
-    //   quad_count[quadrant]++;
-    //   return std::optional<int>{};
-    // });
+    //std::println("{}", robot.coord_at(100));
+    robot.quadrant_at(100).and_then([&](int quadrant) {
+      quad_count[quadrant]++;
+      return std::optional<int>{};
+    });
   }
 
   for (int y = 0; y < height; ++y) {
@@ -91,5 +94,5 @@ int main(int argc, char **argv) {
     }
     std::cout << "\n";
   }
-  dump(quad_count);
+  std::println("{}", std::accumulate(quad_count.begin(), quad_count.end(), 1, std::multiplies<int>()));
 }
