@@ -48,7 +48,7 @@ struct Robot {
     bool x_quad = cur.x > (bounds.x / 2);
     bool y_quad = cur.y > (bounds.y / 2);
     int result = (x_quad << 0) | (y_quad << 1);
-    std::println("{} quad {} - limits {}, xq {}, yq {}", cur, result, Coord2D{bounds.x / 2, bounds.y / 2}, x_quad, y_quad);
+    // std::println("{} quad {} - limits {}, xq {}, yq {}", cur, result, Coord2D{bounds.x / 2, bounds.y / 2}, x_quad, y_quad);
     return result;
   }
 };
@@ -63,7 +63,8 @@ int main(int argc, char **argv) {
   std::vector<Robot> robots;
   while (std::getline(std::cin, line)) {
     auto nums = extract_signed_numbers(line);
-    robots.emplace_back(Coord2D{nums[0], nums[1]}, Coord2D{nums[2], nums[3]}, Coord2D{width, height});
+    robots.emplace_back(Coord2D{nums[0], nums[1]}, Coord2D{nums[2], nums[3]},
+                        Coord2D{width, height});
   }
 
   std::vector<int> quad_count(4, 0);
@@ -71,28 +72,51 @@ int main(int argc, char **argv) {
   for (auto robot : robots) {
     Coord2D after_100 = robot.coord_at(100);
     occupied[after_100]++;
-    //std::println("{}", robot.coord_at(100));
+    // std::println("{}", robot.coord_at(100));
     robot.quadrant_at(100).and_then([&](int quadrant) {
       quad_count[quadrant]++;
       return std::optional<int>{};
     });
   }
 
-  for (int y = 0; y < height; ++y) {
-    if (y == height / 2) {
-      std::cout << "\n";
-      continue;
-    }
-    for (int x = 0; x < width; ++x) {
-      if (x == width / 2) {
-        std::cout << ' ';
-      } else if (occupied[{x, y}]) {
-        std::cout << occupied[{x, y}];
-      } else {
-        std::cout << '.';
+  std::println("{}", std::accumulate(quad_count.begin(), quad_count.end(), 1,
+                                     std::multiplies<int>()));
+
+  int step{};
+  while (true) {
+    std::map<Coord2D, int> occupied{};
+    for (auto robot : robots) {
+      Coord2D after = robot.coord_at(step);
+      if (occupied.contains(after)) {
+        goto outer_end;
       }
+      occupied[after]++;
+      // std::println("{}", robot.coord_at(100));
+      robot.quadrant_at(100).and_then([&](int quadrant) {
+        quad_count[quadrant]++;
+        return std::optional<int>{};
+      });
     }
-    std::cout << "\n";
+
+    std::println("No collisions at {}", step);
+    break;
+    for (int y = 0; y < height; ++y) {
+      if (y == height / 2) {
+        std::cout << "\n";
+        continue;
+      }
+      for (int x = 0; x < width; ++x) {
+        if (x == width / 2) {
+          std::cout << ' ';
+        } else if (occupied[{x, y}]) {
+          std::cout << occupied[{x, y}];
+        } else {
+          std::cout << '.';
+        }
+      }
+      std::cout << "\n";
+    }
+  outer_end:
+    ++step;
   }
-  std::println("{}", std::accumulate(quad_count.begin(), quad_count.end(), 1, std::multiplies<int>()));
 }
