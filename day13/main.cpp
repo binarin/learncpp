@@ -55,7 +55,6 @@ struct ClawMachine {
     Num a_count{target_x / a_dx}, b_count{0};
     Num cur_x{a_count * a_dx}, cur_y{a_count * a_dy};
 
-
     Num remaining_steps_in_vicinity{a_lcm_steps};
     while (cur_x != target_x) {
       if (--remaining_steps_in_vicinity < 0) {
@@ -87,10 +86,6 @@ struct ClawMachine {
     // each such transformation changes Y with the following delta
     Num x_invariant_dy = b_lcm_steps * b_dy - a_lcm_steps * a_dy;
     DPRINT(DEBUG_SOLVE, x_invariant_dy);
-    DPRINT(DEBUG_SOLVE, lcm_x);
-    DPRINT(DEBUG_SOLVE, a_lcm_steps);
-    DPRINT(DEBUG_SOLVE, b_lcm_steps * b_dy);
-    DPRINT(DEBUG_SOLVE, a_lcm_steps * a_dy);
     if (x_invariant_dy == 0) {
       return {};
     }
@@ -106,9 +101,11 @@ struct ClawMachine {
     }
 
     Num invariant_applications = wanted_y_delta / x_invariant_dy;
+    DPRINT(DEBUG_SOLVE, invariant_applications);
 
     a_count -= (invariant_applications * a_lcm_steps);
     b_count += (invariant_applications * b_lcm_steps);
+
     DPRINT(DEBUG_SOLVE, a_count);
     DPRINT(DEBUG_SOLVE, b_count);
 
