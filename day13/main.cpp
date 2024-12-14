@@ -1,4 +1,6 @@
+#include "lib/lib.hpp"
 #include <cctype>
+#include <format>
 #include <iostream>
 #include <iterator>
 #include <sstream>
@@ -7,75 +9,119 @@
 #include <vector>
 #include <print>
 
+[[maybe_unused]] constexpr uint32_t DEBUG_SOLVE{1<<0};
+[[maybe_unused]] constexpr uint32_t DEBUG_COMPARE_WITH_BRUTE{1 << 1};
+constexpr uint32_t DEBUG = 0;
+
+template <uint32_t flags, typename T> constexpr void debug_if(T fn) {
+  if constexpr (DEBUG & flags) {
+    fn();
+  }
+}
+
+template<uint32_t flags, class... Args>
+void println_if(std::format_string<Args...> fmt, Args&&... args) {
+  if constexpr (DEBUG & flags) {
+    std::cout << std::vformat(fmt.get(), std::make_format_args(args...)) << "\n";
+  }
+}
+
+#define DPRINT(flags, expr) println_if<flags>("{}({}():{}) = {}", #expr, __FUNCTION__, __LINE__, (expr))
+
 typedef int64_t Num;
+
+Num gcd(Num a, Num b) {
+  using std::min, std::max;
+
+  while (a != b) {
+    if ( a > b ) {
+      a -= b;
+    } else {
+      b -= a;
+    }
+  }
+  return a;
+}
 
 struct ClawMachine {
   Num a_dx, a_dy;
   Num b_dx, b_dy;
   Num target_x, target_y;
 
-  std::optional<std::pair<int, int>> solve() const {
-    Num steps{100*100*100*100};
-    Num a_count{b_dx * target_x / (a_dx*b_dx)}, b_count{0};
-    Num start{a_count * a_dx};
-    Num cur_x{start}, cur_y{a_count * a_dy};
+  std::optional<std::pair<Num, Num>> solve() {
+    Num lcm_x = a_dx * b_dx / gcd(a_dx, b_dx);
+    Num a_lcm_steps = lcm_x / a_dx;
+    Num b_lcm_steps = lcm_x / b_dx;
+    Num a_count{target_x / a_dx}, b_count{0};
+    Num cur_x{a_count * a_dx}, cur_y{a_count * a_dy};
 
-    while (!(cur_x == target_x && cur_y == target_y)) {
-      std::println("{}, {} - {}, {} - {}, {}", a_count, b_count, cur_x, cur_y, a_count * a_dx + b_count * b_dx, a_count * a_dy + b_count * b_dy);
 
-      if (cur_x == target_x) {
+    Num remaining_steps_in_vicinity{a_lcm_steps};
+    while (cur_x != target_x) {
+      if (--remaining_steps_in_vicinity < 0) {
+        return {};
+      }
+      while (cur_x > target_x) {
         cur_x -= a_dx;
         cur_y -= a_dy;
         --a_count;
       }
-      if (cur_x > target_x) {
-        Num delta = cur_x - target_x;
-        Num repeat = delta / a_dx;
-        if ( delta % a_dx != 0 ) {
-          ++repeat;
-        }
-        cur_x -= repeat * a_dx;
-        cur_y -= repeat * a_dy;
-        a_count -= repeat;
-      }
-
       while (cur_x < target_x) {
-        Num delta = target_x - cur_x;
-        Num repeat = delta / b_dx;
-        if ( delta % b_dx != 0 ) {
-          ++repeat;
-        }
-        cur_x += repeat * b_dx;
-        cur_y += repeat * b_dy;
-        b_count += repeat;
-      }
-      if (--steps < 0 || a_count < 0) {
-        return {};
+        cur_x += b_dx;
+        cur_y += b_dy;
+        ++b_count;
       }
     }
+
+    debug_if<DEBUG_SOLVE>([&]() {
+      std::println("Hit {} (Y={}/{}) at {}, {}", target_x, cur_y, target_y, a_count, b_count);
+    });
+
+    Num wanted_y_delta = target_y - cur_y;
+    DPRINT(DEBUG_SOLVE, wanted_y_delta);
+    if (wanted_y_delta == 0) {
+      return std::make_pair(a_count, b_count);
+    }
+
+    // we can only decrease a_count in a_lcm_steps, while increasing b_count in b_lcm_steps
+    // each such transformation changes Y with the following delta
+    Num x_invariant_dy = b_lcm_steps * b_dy - a_lcm_steps * a_dy;
+    DPRINT(DEBUG_SOLVE, x_invariant_dy);
+    DPRINT(DEBUG_SOLVE, lcm_x);
+    DPRINT(DEBUG_SOLVE, a_lcm_steps);
+    DPRINT(DEBUG_SOLVE, b_lcm_steps * b_dy);
+    DPRINT(DEBUG_SOLVE, a_lcm_steps * a_dy);
+    if (x_invariant_dy == 0) {
+      return {};
+    }
+
+    // different signs
+    if (x_invariant_dy * wanted_y_delta < 0) {
+      return {};
+    }
+
+    if (wanted_y_delta % x_invariant_dy != 0) {
+      println_if<DEBUG_SOLVE>("Target Y not reachable");
+      return {};
+    }
+
+    Num invariant_applications = wanted_y_delta / x_invariant_dy;
+
+    a_count -= (invariant_applications * a_lcm_steps);
+    b_count += (invariant_applications * b_lcm_steps);
+    DPRINT(DEBUG_SOLVE, a_count);
+    DPRINT(DEBUG_SOLVE, b_count);
+
+    if (a_count < 0) {
+      println_if<DEBUG_SOLVE>("Negative a_count {}", a_count);
+      return {};
+    }
+
     return std::make_pair(a_count, b_count);
   }
 
-  std::optional<std::pair<int, int>> solve2() {
-    auto first = solve();
-    auto second = ClawMachine{a_dy, a_dx, b_dy, b_dx, target_y, target_x}.solve(); // .transform([](auto pair) { return std::make_pair(pair.second, pair.first); });
-
-    if (!first) {
-      return second;
-    }
-    if (!second) {
-      return first;
-    }
-    if (solution_cost(first.value()) <= solution_cost(second.value())) {
-      return first;
-    } else {
-      std::println("Second solution");
-      return second;
-    }
-  }
-
-  std::optional<std::pair<int, int>> brute_force_solve() {
-    std::optional<std::pair<int, int>> best_result{};
+  std::optional<std::pair<Num, Num>> brute_force_solve() {
+    std::optional<std::pair<Num, Num>> best_result{};
     for (int a_count = 0; a_count <= 200; ++a_count) {
       for (int b_count = 0; b_count <= 200; ++b_count) {
         if ((a_count * a_dx + b_count * b_dx == target_x ) && (a_count * a_dy + b_count * b_dy == target_y) ) {
@@ -93,14 +139,13 @@ struct ClawMachine {
     return best_result;
   }
 
-  static int solution_cost(std::pair<int, int> solution) {
+  static Num solution_cost(std::pair<Num, Num> solution) {
     return solution.first * 3 + solution.second;
   }
 };
 
 template<>
 struct std::formatter<ClawMachine, char> {
-
   template <class ParseContext>
   constexpr ParseContext::iterator parse(ParseContext& ctx) {
     auto it = ctx.begin();
@@ -229,51 +274,45 @@ int main(int argc, char **argv) {
   auto machines = parser.p_machines();
   std::println("Input size {}", machines.size());
 
-  Num simple_cost{}, brute_cost{}, big_cost{};
+  Num simple_cost{}, big_cost{};
   for (auto m : machines) {
-    // m.target_x += m.a_dx * m.b_dx * m.a_dy * m.b_dy;
-    // m.target_y += m.a_dx * m.b_dx * m.a_dy * m.b_dy;
     std::println("==============================\n{}", m);
-    auto brute = m.brute_force_solve();
-    auto simple = m.solve2();
+    auto clever_solution = m.solve();
 
-    if (simple) {
-      std::println("Found solution: {} x {} + {} x {} = {}", simple.value().first, m.a_dx, simple.value().second, m.b_dx, m.target_x);
-      simple_cost += m.solution_cost(simple.value());
-    }
+    debug_if<DEBUG_COMPARE_WITH_BRUTE>([&]() {
+      auto brute_solution = m.brute_force_solve();
+      if (clever_solution && brute_solution) {
+        if (clever_solution != brute_solution) {
+          auto br = brute_solution.value();
+          auto cl = clever_solution.value();
+          std::println("Solutions mismatch: brute ({},{}), clever: ({}, {})", br.first, br.second, cl.first, cl.second);
+        }
+      } else if (clever_solution) {
+        auto cl = clever_solution.value();
+        std::println("Only clever found ({}, {})", cl.first, cl.second);
+      } else if (brute_solution) {
+        auto br = brute_solution.value();
+        std::println("Only brute found ({}, {})", br.first, br.second);
+      }
+    });
 
-    if (brute) {
-      brute_cost += m.solution_cost(brute.value());
-    }
+    clever_solution.and_then([&](auto pair) {
+      Num cost{m.solution_cost(pair)};
+      std::println("Solution: A={}, B={}\n  cost: {}", pair.first, pair.second, cost);
+      simple_cost += cost;
+      return std::optional<Num>{};
+    });
 
-    if (!simple && brute) {
-      std::println("Only brute-force a solution: {} x {} + {} x {} = {}", brute.value().first, m.a_dx, brute.value().second, m.b_dx, m.target_x);
-    }
-
-    if (simple && brute && simple.value() != brute.value()) {
-      std::println("Brute different solution: {} x {} + {} x {} = {}", brute.value().first, m.a_dx, brute.value().second, m.b_dx, m.target_x);
-    }
-
-    m.target_x += 10000000000000ll;
-    m.target_y += 10000000000000ll;
-    Num full_target_x{m.target_x};
-    Num full_target_y{m.target_y};
-
-    Num stride{m.a_dx    * m.b_dx * m.a_dy * m.b_dy};
-
-    m.target_x %= stride;
-    m.target_y %= stride;
-
-    // m.target_y %= (m.a_dy * m.b_dy);
-    // m.target_y += (m.a_dy * m.b_dy);
-
-    std::println("!!!!!!!!!!!!!BIG!!!!!!!!!!!!!!!\n{}", m);
-    auto big = m.solve();
-    if (big) {
-      std::println("Big solution: {} x {} + {} x {} = {}", big.value().first, m.a_dx, big.value().second, m.b_dx, m.target_x);
-      big_cost += m.solution_cost(big.value());
-    }
+    m.target_x += 10000000000000;
+    m.target_y += 10000000000000;
+    clever_solution = m.solve();
+    clever_solution.and_then([&](auto pair) {
+      Num cost{m.solution_cost(pair)};
+      std::println("Solution: A={}, B={}\n  cost: {}", pair.first, pair.second, cost);
+      big_cost += cost;
+      return std::optional<Num>{};
+    });
   }
   std::println("Simple cost: {}", simple_cost);
-  std::println("Brute_cost: {}", brute_cost);
+  std::println("Big cost: {}", big_cost);
 }
