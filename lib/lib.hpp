@@ -28,4 +28,9 @@ template <class Container, typename T = typename Container::value_type> void dum
 
 std::unique_ptr<indicators::BlockProgressBar, std::function<void(indicators::BlockProgressBar*)>> make_bar(const std::string &prefix, int max_progress);
 
+inline void cls() {
+  std::cout << "\033[H\033[2J";
+}
+
+
 #endif

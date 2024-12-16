@@ -1,7 +1,24 @@
 #pragma once
 #include <algorithm>
+#include <cstdint>
 #include <format>
 #include <sstream>
+
+enum class Dir2D : uint_fast8_t  {
+  Up, Right, Down, Left
+};
+
+inline std::ostream& operator<<(std::ostream& os, Dir2D dir) {
+  switch (dir) {
+  case Dir2D::Up: os << "↑"; break;
+  case Dir2D::Right: os << "→"; break;
+  case Dir2D::Down: os << "↓"; break;
+  case Dir2D::Left: os << "←"; break;
+    break;
+  }
+  return os;
+}
+
 
 struct Coord2D {
   int x = 0;
@@ -27,6 +44,21 @@ struct Coord2D {
     x -= other.x;
     y -= other.y;
     return *this;
+  }
+
+  inline void move_in_dir(Dir2D dir) {
+    Coord2D tmp{in_dir(dir)};
+    x = tmp.x;
+    y = tmp.y;
+  }
+
+  inline Coord2D in_dir(Dir2D dir) const {
+    switch (dir) {
+    case Dir2D::Up: return {x, y - 1};
+    case Dir2D::Right: return {x + 1, y};
+    case Dir2D::Down: return {x, y + 1};
+    case Dir2D::Left: return {x - 1, y};
+    }
   }
 
   inline Coord2D up() const {

@@ -26,7 +26,7 @@ void println_if(std::format_string<Args...> fmt, Args&&... args) {
   }
 }
 
-#define DPRINT(flags, expr) println_if<flags>("{}({}():{}) = {}", #expr, __FUNCTION__, __LINE__, (expr))
+#define DDUMP(flags, expr) println_if<flags>("{}({}():{}) = {}", #expr, __FUNCTION__, __LINE__, (expr))
 
 typedef int64_t Num;
 
@@ -77,7 +77,7 @@ struct ClawMachine {
     });
 
     Num wanted_y_delta = target_y - cur_y;
-    DPRINT(DEBUG_SOLVE, wanted_y_delta);
+    DDUMP(DEBUG_SOLVE, wanted_y_delta);
     if (wanted_y_delta == 0) {
       return std::make_pair(a_count, b_count);
     }
@@ -85,7 +85,7 @@ struct ClawMachine {
     // we can only decrease a_count in a_lcm_steps, while increasing b_count in b_lcm_steps
     // each such transformation changes Y with the following delta
     Num x_invariant_dy = b_lcm_steps * b_dy - a_lcm_steps * a_dy;
-    DPRINT(DEBUG_SOLVE, x_invariant_dy);
+    DDUMP(DEBUG_SOLVE, x_invariant_dy);
     if (x_invariant_dy == 0) {
       return {};
     }
@@ -101,13 +101,13 @@ struct ClawMachine {
     }
 
     Num invariant_applications = wanted_y_delta / x_invariant_dy;
-    DPRINT(DEBUG_SOLVE, invariant_applications);
+    DDUMP(DEBUG_SOLVE, invariant_applications);
 
     a_count -= (invariant_applications * a_lcm_steps);
     b_count += (invariant_applications * b_lcm_steps);
 
-    DPRINT(DEBUG_SOLVE, a_count);
-    DPRINT(DEBUG_SOLVE, b_count);
+    DDUMP(DEBUG_SOLVE, a_count);
+    DDUMP(DEBUG_SOLVE, b_count);
 
     if (a_count < 0) {
       println_if<DEBUG_SOLVE>("Negative a_count {}", a_count);
