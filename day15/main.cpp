@@ -1,21 +1,27 @@
 #include "lib/coord.h"
 #include "lib/debug.hpp"
 #include "lib/lib.hpp"
+#include <chrono>
 #include <climits>
+#include <cstdlib>
 #include <format>
 #include <iostream>
 #include <istream>
 #include <map>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 #include <utility>
 #include <iterator>
 #include <print>
 #include <vector>
 
+using namespace std::chrono_literals;
+
 DEBUG_BIT(DEBUG_ITERATOR, 0)
 DEBUG_BIT(DEBUG_SIMULATION, 1)
-SETUP_DEBUG(0)
+DEBUG_BIT(DEBUG_STENCIL, 2)
+SETUP_DEBUG(DEBUG_SIMULATION | DEBUG_STENCIL)
 [[maybe_unused]] int simulation_delay = 100;
 
 typedef int GPS;
@@ -75,6 +81,8 @@ struct WideCell {
     }
   }
 
+  operator int() const { return m_val; }
+
   bool operator==(Value val) {
     return m_val == val;
   }
@@ -117,11 +125,60 @@ protected:
   Coord2D m_min_coord{INT_MAX, INT_MAX}, m_max_coord{INT_MIN, INT_MIN};
 
 public:
+  Cell operator[](Coord2D c) const {
+    return m_map.at(c);
+  }
+
+  using stencil_t = std::set<Coord2D>;
+
   using parse_input_t = const std::vector<std::string>&;
   template<class MapClass> friend MapClass mk_map(typename MapClass::parse_input_t in);
 
   using annotation_t = std::function<std::string(const Cell&)>;
   using annotations_t = std::map<Coord2D, std::function<std::string(const Cell&)>>;
+
+  bool try_move_stencil(Coord2D source, Coord2D target, const stencil_t& stencil, Cell default_value, bool (*test)(Cell stencil_cell, Cell target_cell)) {
+    std::vector<std::pair<Coord2D, Cell>> assignments{};
+    std::set<Coord2D> clears{};
+
+    DPRINT(DEBUG_STENCIL, "\nMoving stencil from {}", source);
+    DDUMP(DEBUG_STENCIL, target);
+
+    for (auto delta: stencil) {
+      DPRINT(DEBUG_STENCIL, "\nTesting delta {}", delta);
+      Coord2D cur_source = source + delta;
+      Coord2D cur_target = target + delta;
+      if (!m_map.contains(cur_source) || !m_map.contains(cur_target)) {
+        throw std::runtime_error("Stencil out of bound");
+      }
+      Coord2D delta_in_target_frame = cur_target - source;
+      bool target_covered_by_stencil = stencil.contains(delta_in_target_frame);
+      Cell target_cell_value{target_covered_by_stencil ? default_value : m_map[cur_target]};
+
+      DDUMP(DEBUG_STENCIL, cur_source);
+      DDUMP(DEBUG_STENCIL, cur_target);
+      DDUMP(DEBUG_STENCIL, delta_in_target_frame);
+      DDUMP(DEBUG_STENCIL, target_covered_by_stencil);
+      DDUMP(DEBUG_STENCIL, target_cell_value.str());
+
+      if (!test(m_map[cur_source], target_cell_value)) {
+        DPRINT(DEBUG_STENCIL, "Test failed for {}", cur_source);
+        return false;
+      }
+      assignments.push_back({cur_target, m_map[cur_source]});
+      clears.insert(cur_source);
+    }
+
+    for (auto upd: assignments) {
+      auto [coord, value] = upd;
+      clears.erase(coord);
+      m_map[coord] = value;
+    }
+    for (auto clr: clears) {
+      m_map[clr] = default_value;
+    }
+    return true;
+  }
 
   virtual void render(const annotations_t &annotations) const {
     for (int y = m_min_coord.y; y <= m_max_coord.y; ++y) {
@@ -177,9 +234,9 @@ struct Annotations {
   }
 #define ID(x) x
 #define MK(color) \
-  static annotation_t make_##color() { return add_color(termcolor::red); } \
+  static annotation_t make_##color() { return add_color(termcolor::color); } \
   static annotation_t color##_const (const std::string fixed_str) { \
-    return colored_const(termcolor::red, fixed_str); \
+    return colored_const(termcolor::color, fixed_str); \
   }
 
   MK(red);
@@ -203,9 +260,22 @@ public:
     Map2D::render(anns);
   }
 
-  Coord2D m_robot_coord;
+  Coord2D robot_coord() const {
+    return m_robot_coord;
+  }
 
-  protected:
+  void move_robot(Coord2D coord) {
+    if (!coord.within_bounds(m_min_coord, m_max_coord)) {
+      throw std::runtime_error(std::format("Can't move robot to a position {} outside of bounds {}-{}", coord, m_min_coord, m_max_coord));
+    }
+    if (m_map[coord] != WideCell::Empty) {
+      throw std::runtime_error(std::format("Can't move robot to a non-empty position {} containing '{}'", coord, m_map[coord].str()));
+    }
+    m_robot_coord = coord;
+  }
+
+protected:
+  Coord2D m_robot_coord;
   char char_preprocessor(Coord2D coord, char c) {
     if ( c == '@') {
       m_robot_coord = coord;
@@ -219,11 +289,102 @@ struct WideSimulator {
   WideRobotMap map;
   std::vector<Dir2D> instructions;
 
+  bool visualize{true};
+  std::chrono::milliseconds visualisation_delay{500ms};
+
+  WideRobotMap::annotations_t anns{};
+
+  using Ann = Annotations<WideCell>;
+
+  using stencil_t = WideRobotMap::stencil_t;
+
+  void simulation_step(Dir2D instr) {
+    stencil_t stencil;
+
+    const Coord2D start{map.robot_coord()};
+    const Coord2D target{start.in_dir(instr)};
+
+    if (map[target] == WideCell::Empty) {
+      map.move_robot(target);
+      anns[start] = Ann::green_const(instr.str());
+      anns[target] = Ann::green_const("@");
+      return;
+    }
+
+    if (map[target] == WideCell::Wall) {
+      anns[start] = Ann::red_const(instr.str());
+      anns[target] = Ann::make_magenta();
+      return;
+    }
+
+    switch (instr) {
+    case Dir2D::Left:
+    case Dir2D::Right:
+      stencil = horizontal_stencil(target, instr);
+      break;
+    default:
+      stencil = vertical_stencil(target, instr);
+    }
+
+    const Coord2D stencil_target = target.in_dir(instr);
+    for(auto delta: stencil) {
+      anns[target + delta] = Ann::make_magenta();
+    }
+
+    bool moved = map.try_move_stencil(target, stencil_target, stencil, {WideCell::Empty}, [](WideCell src, WideCell target) {
+      if (target == WideCell::Empty) {
+        return true;
+      }
+      return false;
+    });
+
+    DDUMP(DEBUG_SIMULATION, moved);
+
+    if (!moved) {
+      for(auto delta: stencil) {
+        anns[target + delta] = Ann::make_magenta();
+      }
+      anns[start] = Ann::red_const(instr.str());
+      return;
+    }
+
+    for (auto delta: stencil) {
+      anns[stencil_target + delta] = Ann::make_yellow();
+    }
+    anns[start] = Ann::green_const(instr.str());
+    anns[target] = Ann::green_const("@");
+  }
+
+  stencil_t horizontal_stencil(Coord2D start, Dir2D instr) {
+    stencil_t result{};
+    Coord2D target{start};
+    while (map[target] == WideCell::BoxLeft || map[target] == WideCell::BoxRight) {
+      Coord2D delta{target.x - start.x, 0};
+      DDUMP(DEBUG_SIMULATION, delta);
+      result.insert(delta);
+      target.move_in_dir(instr);
+    }
+    return result;
+  }
+
+  stencil_t vertical_stencil(Coord2D target, Dir2D instr) {
+    stencil_t result{};
+
+    return result;
+  }
+
   void simulate() {
     for(auto instr: instructions) {
-      WideRobotMap::annotations_t anns{};
-      Coord2D start{map.m_robot_coord};
-      Coord2D target{start.in_dir(instr)};
+      anns = {};
+      simulation_step(instr);
+      if (visualize) {
+        if constexpr (!(DEBUG & DEBUG_SIMULATION)) {
+          cls();
+        }
+        map.render(anns);
+        std::this_thread::sleep_for(visualisation_delay);
+        std::exit(0);
+      }
     }
   }
 };
@@ -531,10 +692,15 @@ int main(int argc, char **argv) {
     }
     map_input.push_back(line);
   }
+  auto instructions = parse_instructions(std::cin);
 
   auto map = mk_map<WideRobotMap>(map_input);
-  map.render({});
 
+  auto simulation = WideSimulator{
+    .map = map,
+    .instructions = instructions,
+  };
+  simulation.simulate();
 
   // auto [map, robot_coord] = Map::parse_map(std::cin);
   // auto instructions = parse_instructions(std::cin);

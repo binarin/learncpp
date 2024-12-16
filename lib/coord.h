@@ -5,18 +5,16 @@
 #include <sstream>
 
 struct Dir2D {
-  enum class Value : uint_fast8_t  {
+  enum Value : uint_fast8_t  {
     Up, Right, Down, Left
   } m_val;
 
   Dir2D(Value val) : m_val(val) {};
 
-  using Value::Up;
-  using Value::Right;
-  using Value::Down;
-  using Value::Left;
+  bool operator==(Value val) const { return m_val == val; }
+  operator int() const { return static_cast<int>(m_val); }
 
-  std::string_view str() const {
+  std::string str() const {
     switch (m_val) {
     case Up: return "↑";
     case Right: return "→";
@@ -91,6 +89,10 @@ struct Coord2D {
     return {x + 1, y};
   };
 
+  inline bool within_bounds(Coord2D top_left, Coord2D bottom_right) {
+    return x >= top_left.x && x <= bottom_right.x && y >= top_left.y && y <= bottom_right.y;
+  }
+
   void maybe_update_lower_boundary(const Coord2D& coord) {
     x = std::min(x, coord.x);
     y = std::min(y, coord.y);
@@ -101,6 +103,7 @@ struct Coord2D {
     y = std::max(y, coord.y);
   }
 };
+
 
 template<>
 struct std::formatter<Coord2D, char> {
