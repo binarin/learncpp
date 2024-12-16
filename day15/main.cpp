@@ -18,7 +18,6 @@ DEBUG_BIT(DEBUG_SIMULATION, 1)
 SETUP_DEBUG(0)
 [[maybe_unused]] int simulation_delay = 100;
 
-
 typedef int GPS;
 
 static Dir2D parse_direction(char c) {
@@ -31,6 +30,203 @@ static Dir2D parse_direction(char c) {
   }
 }
 
+struct NarrowCell {
+  enum Value : uint8_t {
+    Wall, Empty, Box,
+  } m_val;
+
+  std::string str() const {
+    switch (m_val) {
+      case Value::Wall: return "#";
+      case Value::Empty: return ".";
+      case Value::Box: return "O";
+    }
+  }
+
+  bool operator==(Value val) {
+    return m_val == val;
+  }
+
+  using parse_result = std::vector<NarrowCell>;
+  static std::optional<std::vector<NarrowCell>> parse_char(char c) {
+    auto mk = [](Value val) {
+      return std::vector<NarrowCell>{NarrowCell{val}};
+    };
+    switch (c) {
+    case '#': return mk(Wall);
+    case '.': return mk(Empty);
+    case 'O': return mk(Box);
+    default: return {};
+    }
+  }
+};
+
+struct WideCell {
+  enum Value : uint8_t {
+    Wall, Empty, BoxLeft, BoxRight
+  } m_val;
+
+  std::string str() const {
+    switch (m_val) {
+      case Value::Wall: return "#";
+      case Value::Empty: return ".";
+      case Value::BoxLeft: return "[";
+      case Value::BoxRight: return "]";
+    }
+  }
+
+  bool operator==(Value val) {
+    return m_val == val;
+  }
+
+  using parse_result = std::vector<WideCell>;
+  static std::optional<parse_result> parse_char(char c) {
+    return NarrowCell::parse_char(c).transform([](NarrowCell::parse_result nar) {
+      auto mk = [](Value val1, Value val2) {
+        return std::vector<WideCell>{WideCell{val1}, WideCell{val2}};
+      };
+      switch (nar[0].m_val) {
+      case NarrowCell::Wall: return mk(Wall, Wall);
+      case NarrowCell::Empty: return mk(Empty, Empty);
+      case NarrowCell::Box: return mk(BoxLeft, BoxRight);
+      }
+    });
+  }
+};
+
+template <typename Mod>
+std::string colored(Mod mod, std::string_view s) {
+  std::ostringstream os;
+  os << termcolor::colorize << mod << s << termcolor::reset;
+  return os.str();
+}
+
+template <class MapClass>
+MapClass mk_map(typename MapClass::parse_input_t in) {
+  MapClass result{};
+  result.parse(in);
+  return result;
+}
+
+template <class Cell> class Map2D {
+protected:
+  using cell_type_t = Cell;
+  using cell_storage_t = std::map<Coord2D, Cell>;
+
+  cell_storage_t m_map;
+  Coord2D m_min_coord{INT_MAX, INT_MAX}, m_max_coord{INT_MIN, INT_MIN};
+
+public:
+  using parse_input_t = const std::vector<std::string>&;
+  template<class MapClass> friend MapClass mk_map(typename MapClass::parse_input_t in);
+
+  using annotation_t = std::function<std::string(const Cell&)>;
+  using annotations_t = std::map<Coord2D, std::function<std::string(const Cell&)>>;
+
+  virtual void render(const annotations_t &annotations) const {
+    for (int y = m_min_coord.y; y <= m_max_coord.y; ++y) {
+      for (int x = m_min_coord.x; x <= m_max_coord.x; ++x) {
+        if (annotations.contains({x, y})) {
+          std::cout << annotations.at({x, y})(m_map.at({x, y}));
+        } else {
+          std::cout << m_map.at({x, y}).str();
+        }
+      }
+      std::cout << "\n";
+    }
+  }
+
+protected:
+  virtual char char_preprocessor(Coord2D coord, char c) { return c; }
+
+  void parse(parse_input_t in) {
+    m_min_coord = {0, 0};
+
+    for (int y = 0; y < in.size(); y++) {
+      int x{0};
+      for (char c: in[y]) {
+        auto parse_result = Cell::parse_char(char_preprocessor({x, y}, c));
+        if (!parse_result) {
+          throw std::runtime_error(std::format("Can't parse char '{}'", c));
+        }
+        for (Cell c: parse_result.value()) {
+          m_map[{x, y}] = c;
+          m_max_coord.maybe_update_upper_boundary({x, y});
+          ++x;
+        }
+      }
+    }
+  }
+};
+
+template <class Cell>
+struct Annotations {
+  using ostream_mod = std::ostream& (&)(std::ostream&);
+  using annotation_t = Map2D<Cell>::annotation_t;
+
+  static annotation_t add_color(ostream_mod col) {
+    return [&](const Cell& c) {
+      return colored(col, c.str());
+    };
+  }
+
+  static annotation_t colored_const(ostream_mod col, const std::string fixed_str) {
+    return [=](const Cell&) {
+      return colored(col, fixed_str);
+    };
+  }
+#define ID(x) x
+#define MK(color) \
+  static annotation_t make_##color() { return add_color(termcolor::red); } \
+  static annotation_t color##_const (const std::string fixed_str) { \
+    return colored_const(termcolor::red, fixed_str); \
+  }
+
+  MK(red);
+  MK(blue);
+  MK(green);
+  MK(cyan);
+  MK(magenta);
+  MK(bright_grey);
+  MK(yellow);
+
+#undef MK
+};
+
+class WideRobotMap : public Map2D<WideCell> {
+public:
+  void render(const annotations_t &annotations) const {
+    annotations_t anns{annotations};
+    if (!anns.contains(m_robot_coord)) {
+      anns[m_robot_coord] = Annotations<WideCell>::cyan_const("@");
+    }
+    Map2D::render(anns);
+  }
+
+  Coord2D m_robot_coord;
+
+  protected:
+  char char_preprocessor(Coord2D coord, char c) {
+    if ( c == '@') {
+      m_robot_coord = coord;
+      return '.';
+    }
+    return c;
+  }
+};
+
+struct WideSimulator {
+  WideRobotMap map;
+  std::vector<Dir2D> instructions;
+
+  void simulate() {
+    for(auto instr: instructions) {
+      WideRobotMap::annotations_t anns{};
+      Coord2D start{map.m_robot_coord};
+      Coord2D target{start.in_dir(instr)};
+    }
+  }
+};
 
 struct Map {
   struct Cell {
@@ -326,18 +522,30 @@ std::pair<Map, Coord2D> simulate(const Map &initial_map, Coord2D robot_coord, st
 
 
 int main(int argc, char **argv) {
-  auto [map, robot_coord] = Map::parse_map(std::cin);
-  auto instructions = parse_instructions(std::cin);
-  std::println("Instructions of size {}", instructions.size());
-  dump(instructions);
-  std::println();
-  std::println("Parsed map of size {} - {}", map.min_coord, map.max_coord);
-  map.render(robot_coord, "@");
+  std::vector<std::string> map_input{};
+  std::string line;
 
-  auto result = simulate(map, robot_coord, instructions);
+  while (getline(std::cin, line)) {
+    if (line == "") {
+      break;
+    }
+    map_input.push_back(line);
+  }
 
-  std::println("\nGPS after simulation is complete: {}", result.first.gps_all_boxes());
-  result.first.render(result.second, "@");
+  auto map = mk_map<WideRobotMap>(map_input);
+  map.render({});
 
 
+  // auto [map, robot_coord] = Map::parse_map(std::cin);
+  // auto instructions = parse_instructions(std::cin);
+  // std::println("Instructions of size {}", instructions.size());
+  // dump(instructions);
+  // std::println();
+  // std::println("Parsed map of size {} - {}", map.min_coord, map.max_coord);
+  // map.render(robot_coord, "@");
+
+  // auto result = simulate(map, robot_coord, instructions);
+
+  // std::println("\nGPS after simulation is complete: {}", result.first.gps_all_boxes());
+  // result.first.render(result.second, "@");
 }

@@ -4,17 +4,34 @@
 #include <format>
 #include <sstream>
 
-enum class Dir2D : uint_fast8_t  {
-  Up, Right, Down, Left
+struct Dir2D {
+  enum class Value : uint_fast8_t  {
+    Up, Right, Down, Left
+  } m_val;
+
+  Dir2D(Value val) : m_val(val) {};
+
+  using Value::Up;
+  using Value::Right;
+  using Value::Down;
+  using Value::Left;
+
+  std::string_view str() const {
+    switch (m_val) {
+    case Up: return "↑";
+    case Right: return "→";
+    case Down: return "↓";
+    case Left: return "←";
+    }
+  }
 };
 
 inline std::ostream& operator<<(std::ostream& os, Dir2D dir) {
-  switch (dir) {
+  switch (dir.m_val) {
   case Dir2D::Up: os << "↑"; break;
   case Dir2D::Right: os << "→"; break;
   case Dir2D::Down: os << "↓"; break;
   case Dir2D::Left: os << "←"; break;
-    break;
   }
   return os;
 }
@@ -53,7 +70,7 @@ struct Coord2D {
   }
 
   inline Coord2D in_dir(Dir2D dir) const {
-    switch (dir) {
+    switch (dir.m_val) {
     case Dir2D::Up: return {x, y - 1};
     case Dir2D::Right: return {x + 1, y};
     case Dir2D::Down: return {x, y + 1};
