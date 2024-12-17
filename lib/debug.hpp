@@ -26,5 +26,6 @@
   }
 
 
+
 #define DPRINT(flags, ...) println_if<flags>("{} \033[90m({}():{})\033[00m",  std::format(__VA_ARGS__), __FUNCTION__, __LINE__)
 #define DDUMP(flags, ...) println_if<flags>("{} = {} \033[90m({}():{})\033[00m", #__VA_ARGS__, (__VA_ARGS__), __FUNCTION__, __LINE__)

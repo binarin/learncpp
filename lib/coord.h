@@ -14,6 +14,24 @@ struct Dir2D {
   bool operator==(Value val) const { return m_val == val; }
   operator int() const { return static_cast<int>(m_val); }
 
+  Dir2D left() const {
+    switch (m_val) {
+    case Up: return Left;
+    case Right: return Up;
+    case Down: return Right;
+    case Left: return Down;
+    }
+  }
+
+  Dir2D right() const {
+    switch (m_val) {
+    case Up: return Right;
+    case Right: return Down;
+    case Down: return Left;
+    case Left: return Up;
+    }
+  }
+
   std::string str() const {
     switch (m_val) {
     case Up: return "↑";

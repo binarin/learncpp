@@ -3,11 +3,13 @@
 #include "lib/lib.hpp"
 #include <chrono>
 #include <climits>
+#include <cstdint>
 #include <cstdlib>
 #include <format>
 #include <iostream>
 #include <istream>
 #include <map>
+#include <ranges>
 #include <sstream>
 #include <stdexcept>
 #include <thread>
@@ -21,7 +23,11 @@ using namespace std::chrono_literals;
 DEBUG_BIT(DEBUG_ITERATOR, 0)
 DEBUG_BIT(DEBUG_SIMULATION, 1)
 DEBUG_BIT(DEBUG_STENCIL, 2)
-SETUP_DEBUG(DEBUG_SIMULATION | DEBUG_STENCIL)
+DEBUG_BIT(DEBUG_MERGE, 3)
+DEBUG_BIT(DEBUG_SIMULATION_TOPLEVEL, 4)
+DEBUG_BIT(DEBUG_SIMULATION_INVARIANTS, 5)
+DEBUG_BIT(DEBUG_SIMULATION_PUSH_VERBOSE, 6)
+SETUP_DEBUG(DEBUG_SIMULATION_INVARIANTS);
 [[maybe_unused]] int simulation_delay = 100;
 
 typedef int GPS;
@@ -68,22 +74,34 @@ struct NarrowCell {
 };
 
 struct WideCell {
-  enum Value : uint8_t {
-    Wall, Empty, BoxLeft, BoxRight
-  } m_val;
+  enum Value : int_fast8_t {
+    Wall = 1, Empty, BoxLeft, BoxRight,
+  };
+
+  Value m_val;
+
+  static constexpr WideCell wall();
+  static constexpr WideCell empty();
+  static constexpr WideCell box_left();
+  static constexpr WideCell box_right();
+
+  WideCell(): m_val(Wall) {};
+  WideCell(Value val): m_val(val) {}
 
   std::string str() const {
     switch (m_val) {
-      case Value::Wall: return "#";
-      case Value::Empty: return ".";
-      case Value::BoxLeft: return "[";
-      case Value::BoxRight: return "]";
+    case Wall: return "█";
+    case Empty: return ".";
+    case BoxLeft:  return "[";
+    case BoxRight: return "]";
     }
   }
 
+  operator std::string() const { return str(); }
+
   operator int() const { return m_val; }
 
-  bool operator==(Value val) {
+  bool operator==(int val) {
     return m_val == val;
   }
 
@@ -101,6 +119,13 @@ struct WideCell {
     });
   }
 };
+
+constexpr WideCell WideCell::wall() { return WideCell{WideCell::Value::Wall}; };
+constexpr WideCell WideCell::empty() { return WideCell{WideCell::Value::Empty}; };
+constexpr WideCell WideCell::box_left() { return WideCell{WideCell::Value::BoxLeft}; };
+constexpr WideCell WideCell::box_right() { return WideCell{WideCell::Value::BoxRight}; };
+
+
 
 template <typename Mod>
 std::string colored(Mod mod, std::string_view s) {
@@ -130,12 +155,22 @@ public:
   }
 
   using stencil_t = std::set<Coord2D>;
+  using slice_t = cell_storage_t;
 
   using parse_input_t = const std::vector<std::string>&;
   template<class MapClass> friend MapClass mk_map(typename MapClass::parse_input_t in);
 
   using annotation_t = std::function<std::string(const Cell&)>;
   using annotations_t = std::map<Coord2D, std::function<std::string(const Cell&)>>;
+
+  Coord2D top_left_coord() const { return m_min_coord; }
+  Coord2D bottom_right_coord() const { return m_max_coord; }
+
+  void merge(slice_t &slice) {
+    for(auto pair: slice) {
+      m_map[pair.first] = pair.second;
+    }
+  }
 
   bool try_move_stencil(Coord2D source, Coord2D target, const stencil_t& stencil, Cell default_value, bool (*test)(Cell stencil_cell, Cell target_cell)) {
     std::vector<std::pair<Coord2D, Cell>> assignments{};
@@ -274,6 +309,21 @@ public:
     m_robot_coord = coord;
   }
 
+  static GPS gps(Coord2D c) {
+    return c.y * 100 + c.x;
+  }
+
+  GPS gps_all_boxes() const {
+    GPS result{};
+    for (auto pair: m_map) {
+      if (pair.second == WideCell::BoxLeft) {
+        result += gps(pair.first);
+      }
+    }
+    return result;
+  }
+
+
 protected:
   Coord2D m_robot_coord;
   char char_preprocessor(Coord2D coord, char c) {
@@ -289,102 +339,338 @@ struct WideSimulator {
   WideRobotMap map;
   std::vector<Dir2D> instructions;
 
-  bool visualize{true};
-  std::chrono::milliseconds visualisation_delay{500ms};
+  bool visualize{true}, collect_annotations{true};
+  std::chrono::milliseconds visualisation_delay{150ms};
 
-  WideRobotMap::annotations_t anns{};
+  WideRobotMap::annotations_t anns{}, static_annotations{};
 
   using Ann = Annotations<WideCell>;
 
   using stencil_t = WideRobotMap::stencil_t;
 
-  void simulation_step(Dir2D instr) {
-    stencil_t stencil;
+  bool simulation_step(Dir2D instr) {
+    std::optional<stencil_t> pushable_stencil{};
 
     const Coord2D start{map.robot_coord()};
     const Coord2D target{start.in_dir(instr)};
+    DPRINT(DEBUG_SIMULATION, "Trying to move from {} to {}", start, target);
 
     if (map[target] == WideCell::Empty) {
       map.move_robot(target);
-      anns[start] = Ann::green_const(instr.str());
+      anns[start] = Ann::bright_grey_const(instr.str());
       anns[target] = Ann::green_const("@");
-      return;
+      return true;
     }
 
     if (map[target] == WideCell::Wall) {
       anns[start] = Ann::red_const(instr.str());
-      anns[target] = Ann::make_magenta();
-      return;
-    }
-
-    switch (instr) {
-    case Dir2D::Left:
-    case Dir2D::Right:
-      stencil = horizontal_stencil(target, instr);
-      break;
-    default:
-      stencil = vertical_stencil(target, instr);
-    }
-
-    const Coord2D stencil_target = target.in_dir(instr);
-    for(auto delta: stencil) {
-      anns[target + delta] = Ann::make_magenta();
-    }
-
-    bool moved = map.try_move_stencil(target, stencil_target, stencil, {WideCell::Empty}, [](WideCell src, WideCell target) {
-      if (target == WideCell::Empty) {
-        return true;
-      }
+      anns[target] = Ann::make_red();
       return false;
-    });
+    }
 
+    bool moved = try_push_box(target, instr);
     DDUMP(DEBUG_SIMULATION, moved);
 
     if (!moved) {
-      for(auto delta: stencil) {
-        anns[target + delta] = Ann::make_magenta();
-      }
       anns[start] = Ann::red_const(instr.str());
-      return;
+      return false;
     }
-
-    for (auto delta: stencil) {
-      anns[stencil_target + delta] = Ann::make_yellow();
-    }
-    anns[start] = Ann::green_const(instr.str());
+    map.move_robot(target);
+    anns[start] = Ann::bright_grey_const(instr.str());
     anns[target] = Ann::green_const("@");
+    return true;
   }
 
-  stencil_t horizontal_stencil(Coord2D start, Dir2D instr) {
-    stencil_t result{};
-    Coord2D target{start};
-    while (map[target] == WideCell::BoxLeft || map[target] == WideCell::BoxRight) {
-      Coord2D delta{target.x - start.x, 0};
-      DDUMP(DEBUG_SIMULATION, delta);
-      result.insert(delta);
-      target.move_in_dir(instr);
+  void render_slice(WideRobotMap::slice_t &updates) {
+    Coord2D tl{map.top_left_coord()}, br{map.bottom_right_coord()};
+    for (int y = tl.y; y <= br.y; ++y) {
+      for (int x = tl.x; x <= br.x; ++x) {
+        std::print("{}", updates.contains({x, y}) ? updates[{x, y}].str() : " ");
+      }
+      std::println();
+    }
+  }
+
+  bool try_push_box(Coord2D coord, Dir2D instr) {
+    WideRobotMap::slice_t updates{};
+    bool can_push{false};
+    switch (instr.m_val) {
+    case Dir2D::Up:
+    case Dir2D::Down:
+      can_push = try_push_box_v(coord, instr, updates);
+      break;
+    case Dir2D::Right:
+    case Dir2D::Left:
+      can_push = try_push_box_h(coord, instr, updates);
+      break;
+    }
+    if (!can_push) {
+      return false;
+    }
+
+    if constexpr ( DEBUG & DEBUG_SIMULATION ) {
+      render_slice(updates);
+    };
+
+    if (collect_annotations) {
+      for (auto pair : updates) {
+        if (pair.second == WideCell::Wall || pair.second == WideCell::Empty) {
+          anns[pair.first] = static_annotations[pair.first] = Ann::make_bright_grey();
+        } else {
+          static_annotations.erase(pair.first);
+          anns[pair.first] = Ann::make_yellow();
+        }
+      }
+    }
+
+    ValidationResult before_merge, after_merge;
+    if constexpr (DEBUG & DEBUG_SIMULATION_INVARIANTS) {
+      before_merge = validate_map();
+    }
+
+    map.merge(updates);
+
+    if constexpr (DEBUG & DEBUG_SIMULATION_INVARIANTS) {
+      after_merge = validate_map();
+
+      if (after_merge.box_count != before_merge.box_count
+          || after_merge.wall_count != before_merge.wall_count
+          || after_merge.empty_count != before_merge.empty_count
+          || before_merge.broken_box_count > 0
+          || after_merge.broken_box_count > 0) {
+        std::println("Before merge: boxes {}, walls {}, empties {}, broken boxes {}", before_merge.box_count, before_merge.wall_count, before_merge.empty_count, before_merge.broken_box_count);
+        std::println("After merge: boxes {}, walls {}, empties {}, broken boxes {}", after_merge.box_count, after_merge.wall_count, after_merge.empty_count, after_merge.broken_box_count);
+        map.render(anns);
+        throw std::runtime_error("INVARIANT");
+      }
+
+    }
+
+    return true;
+  }
+
+  struct ValidationResult {
+    int box_count{}, broken_box_count{}, wall_count{}, empty_count{};
+  };
+  ValidationResult validate_map() const {
+    ValidationResult result{};
+    Coord2D tl{map.top_left_coord()}, br{map.bottom_right_coord()};
+    for (int y = tl.y; y <= br.y; ++y) {
+      for (int x = tl.x; x <= br.x; ++x) {
+        switch (map[{x, y}].m_val) {
+        case WideCell::Wall: ++result.wall_count; break;
+        case WideCell::Empty: ++result.empty_count; break;
+        case WideCell::BoxLeft:
+          if (map[Coord2D{x, y}.in_dir(Dir2D::Right)] == WideCell::BoxRight) {
+            ++result.box_count;
+          } else {
+            ++result.broken_box_count;
+          }
+          break;
+        case WideCell::BoxRight:
+          if (map[Coord2D{x, y}.in_dir(Dir2D::Left)] != WideCell::BoxLeft) {
+            ++result.broken_box_count;
+          }
+          break;
+        }
+      }
     }
     return result;
   }
 
-  stencil_t vertical_stencil(Coord2D target, Dir2D instr) {
-    stencil_t result{};
+  bool try_push_box_h(Coord2D coord, Dir2D instr, WideRobotMap::slice_t &update) {
+    // XXX it really pushes half-boxes around
+    DDUMP(DEBUG_SIMULATION, coord);
 
-    return result;
+    const Coord2D target{coord.in_dir(instr)};
+    DDUMP(DEBUG_SIMULATION, target);
+
+    if (map[target] == WideCell::Wall) {
+      DPRINT(DEBUG_SIMULATION, "Wall at {}", target);
+      if (collect_annotations) {
+        anns[target] = Ann::make_red();
+        anns[coord] = Ann::make_magenta();
+      }
+      return false;
+    }
+
+    bool can_move{map[target] == WideCell::Empty};
+    DDUMP(DEBUG_SIMULATION, can_move);
+
+    if (!can_move) {
+      DPRINT(DEBUG_SIMULATION, "=== Recursive {}", target);
+      can_move = try_push_box_h(target, instr, update);
+    }
+
+    if (!can_move) {
+      DPRINT(DEBUG_SIMULATION, "Can't move");
+      anns[coord] = Ann::make_magenta();
+      return false;
+    }
+
+    DPRINT(DEBUG_SIMULATION, "Moving from {} to {}", coord, target);
+
+    update[coord] = WideCell::Empty;
+    DPRINT(DEBUG_SIMULATION, "Clearing {}", coord);
+
+    update[target] = map[coord];
+    DPRINT(DEBUG_SIMULATION, "Moving '{}' to {}", map[coord].str(), target);
+
+    // update[target.in_dir(instr)] = map[coord.in_dir(instr)];
+    // DPRINT(DEBUG_SIMULATION, "Moving '{}' to {}", map[coord.in_dir(instr)].str(), target.in_dir(instr));
+    return true;
+  }
+
+  bool try_push_box_v(Coord2D coord, Dir2D instr, WideRobotMap::slice_t &update) {
+    DPRINT(DEBUG_SIMULATION, "V-move {} at {}", instr.str(), coord);
+    const WideCell port_cell_value{instr == Dir2D::Up ? WideCell::BoxLeft : WideCell::BoxRight};
+    const WideCell starboard_cell_value{port_cell_value == WideCell::BoxLeft ? WideCell::BoxRight : WideCell::BoxLeft};
+
+    const Coord2D port_coord{map[coord] == port_cell_value ? coord : coord.in_dir(instr.left())};
+    const Coord2D starboard_coord{map[coord] == starboard_cell_value ? coord : coord.in_dir(instr.right())};
+
+    const Coord2D port_target{port_coord.in_dir(instr)};
+    const Coord2D starboard_target{starboard_coord.in_dir(instr)};
+
+    if (map[port_target] == WideCell::Wall || map[starboard_target] == WideCell::Wall) {
+      if (collect_annotations && map[port_target] == WideCell::Wall) {
+        anns[port_target] = Ann::make_red();
+      }
+      if (collect_annotations && map[starboard_target] == WideCell::Wall) {
+        anns[starboard_target] = Ann::make_red();
+      }
+      if (collect_annotations) {
+        anns[port_coord] = Ann::make_magenta();
+        anns[starboard_coord] = Ann::make_magenta();
+      }
+      return false;
+    }
+
+    bool port_clear_other_branch{update.contains(port_target) && update[port_target] == WideCell::Empty};
+    bool starboard_clear_other_branch{update.contains(starboard_target) && update[starboard_target] == WideCell::Empty};
+    bool can_move_port{map[port_target] == WideCell::Empty};
+    bool can_move_starboard{map[starboard_target] == WideCell::Empty};
+    can_move_port = can_move_port || port_clear_other_branch;
+    can_move_starboard = can_move_starboard || starboard_clear_other_branch;
+
+    if (!can_move_port) {
+      DDUMP(DEBUG_SIMULATION, map[port_target] == port_cell_value);
+      if (map[port_target] == port_cell_value) {
+        DPRINT(DEBUG_SIMULATION, "Before pushing straight V-move {} at {}", instr.str(), coord);
+        can_move_starboard = can_move_port = try_push_box_v(port_target, instr, update);
+        DPRINT(DEBUG_SIMULATION, "After pushing straight V-move {} at {}", instr.str(), coord);
+        if constexpr (DEBUG & DEBUG_SIMULATION_PUSH_VERBOSE) { render_slice(update); };
+      } else {
+        DPRINT(DEBUG_SIMULATION, "Before pushing port-port V-move {} at {}", instr.str(), coord);
+        can_move_port = try_push_box_v(port_target.in_dir(instr.left()), instr, update);
+        DPRINT(DEBUG_SIMULATION, "After pushing port-port V-move {} at {}", instr.str(), coord);
+        if constexpr (DEBUG & DEBUG_SIMULATION_PUSH_VERBOSE) { render_slice(update); };
+      }
+    }
+
+    if (!can_move_port) {
+      if (collect_annotations) {
+        anns[starboard_coord] = Ann::make_magenta();
+        anns[port_coord] = Ann::make_magenta();
+      }
+      return false;
+    }
+
+    if (!can_move_starboard) {
+      DPRINT(DEBUG_SIMULATION, "Before pushing starboard V-move {} at {}", instr.str(), coord);
+      can_move_starboard = try_push_box_v(starboard_target, instr, update);
+      DPRINT(DEBUG_SIMULATION, "After pushing starboard V-move {} at {}", instr.str(), coord);
+      if constexpr (DEBUG & DEBUG_SIMULATION_PUSH_VERBOSE) { render_slice(update); };
+    }
+
+    if (!can_move_starboard) {
+      if (collect_annotations) {
+        anns[starboard_coord] = Ann::make_magenta();
+        anns[port_coord] = Ann::make_magenta();
+      }
+      return false;
+    }
+
+    update[port_coord] = WideCell::Empty;
+    update[starboard_coord] = WideCell::Empty;
+    update[port_target] = port_cell_value;
+    update[starboard_target] = starboard_cell_value;
+    DPRINT(DEBUG_SIMULATION, "Own updates of V-move {} at {}", instr.str(), coord);
+    if constexpr (DEBUG & DEBUG_SIMULATION_PUSH_VERBOSE) { render_slice(update); };
+
+    return true;
   }
 
   void simulate() {
+    collect_annotations = collect_annotations || visualize;
+    debug_if<DEBUG_SIMULATION>([&]() {
+      map.render({});
+    });
+
+    auto bar = (!DEBUG && visualize) ? make_bar("Running instructions 🏃 ", instructions.size()) : nullptr;
+
+    if (!DEBUG && visualize) {
+      cls();
+    }
+
+    Coord2D tl{map.top_left_coord()}, br{map.bottom_right_coord()};
+    if (collect_annotations) {
+      for (int y = tl.y; y <= br.y; ++y) {
+        for (int x = tl.x; x <= br.x; ++x) {
+          if (map[{x, y}] == WideCell::Wall) {
+            static_annotations[{x, y}] = Ann::make_bright_grey();
+          }
+          if (map[{x, y}] == WideCell::Empty) {
+            static_annotations[{x, y}] = Ann::make_bright_grey();
+          }
+        }
+      }
+    }
+
+    bool has_moved{true};
+    Dir2D prev_instr{instructions[0].left()};
+
+    int ip{0};
     for(auto instr: instructions) {
-      anns = {};
-      simulation_step(instr);
+      DPRINT(DEBUG_SIMULATION_TOPLEVEL, "Commencing step {} {} (prev {}, moved {})", ip, instr.str(), prev_instr.str(), has_moved);
+
+      if (!has_moved && instr == prev_instr) {
+        DPRINT(DEBUG_SIMULATION_TOPLEVEL, "Not moved on previous step, instruction is the same - {}", instr.str());
+        ++ip;
+        continue;
+      }
+
+      if (collect_annotations) {
+        anns = static_annotations;
+      }
+
+      if (ip == 1345) {
+        map.render({});
+      }
+
+      prev_instr = instr;
+      has_moved = simulation_step(instr);
+      DPRINT(DEBUG_SIMULATION_TOPLEVEL, "{}", has_moved);
+
       if (visualize) {
-        if constexpr (!(DEBUG & DEBUG_SIMULATION)) {
-          cls();
+        if constexpr (!DEBUG) {
+          std::print("\033[1;1H");
+          bar->tick();
+          std::print("\033[3;1H\033[0m");
         }
         map.render(anns);
+        std::println("Step: {}", ip);
         std::this_thread::sleep_for(visualisation_delay);
-        std::exit(0);
       }
+      ++ip;
+    }
+
+    if (visualize && !DEBUG) {
+      anns = static_annotations;
+      std::print("\033[1;1H");
+      bar.reset();
+      std::print("\033[3;1H\033[0m");
+      map.render(anns);
     }
   }
 };
@@ -699,8 +985,15 @@ int main(int argc, char **argv) {
   auto simulation = WideSimulator{
     .map = map,
     .instructions = instructions,
+    .visualize = false,
+    .collect_annotations = true,
+    .visualisation_delay = 50ms,
   };
+  simulation.map.render({});
+  std::println();
   simulation.simulate();
+  simulation.map.render({});
+  std::println("GPS cost {}", simulation.map.gps_all_boxes());
 
   // auto [map, robot_coord] = Map::parse_map(std::cin);
   // auto instructions = parse_instructions(std::cin);
