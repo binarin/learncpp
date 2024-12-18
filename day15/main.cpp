@@ -27,7 +27,7 @@ DEBUG_BIT(DEBUG_MERGE, 3)
 DEBUG_BIT(DEBUG_SIMULATION_TOPLEVEL, 4)
 DEBUG_BIT(DEBUG_SIMULATION_INVARIANTS, 5)
 DEBUG_BIT(DEBUG_SIMULATION_PUSH_VERBOSE, 6)
-SETUP_DEBUG(DEBUG_SIMULATION_INVARIANTS);
+SETUP_DEBUG(0)
 [[maybe_unused]] int simulation_delay = 100;
 
 typedef int GPS;
@@ -357,13 +357,13 @@ struct WideSimulator {
 
     if (map[target] == WideCell::Empty) {
       map.move_robot(target);
-      anns[start] = Ann::bright_grey_const(instr.str());
+      anns[start] = Ann::make_cyan();
       anns[target] = Ann::green_const("@");
       return true;
     }
 
     if (map[target] == WideCell::Wall) {
-      anns[start] = Ann::red_const(instr.str());
+      anns[start] = Ann::red_const("@");
       anns[target] = Ann::make_red();
       return false;
     }
@@ -372,11 +372,11 @@ struct WideSimulator {
     DDUMP(DEBUG_SIMULATION, moved);
 
     if (!moved) {
-      anns[start] = Ann::red_const(instr.str());
+      anns[start] = Ann::red_const("@");
       return false;
     }
     map.move_robot(target);
-    anns[start] = Ann::bright_grey_const(instr.str());
+    anns[start] = Ann::make_cyan();
     anns[target] = Ann::green_const("@");
     return true;
   }
@@ -642,10 +642,6 @@ struct WideSimulator {
 
       if (collect_annotations) {
         anns = static_annotations;
-      }
-
-      if (ip == 1345) {
-        map.render({});
       }
 
       prev_instr = instr;
@@ -985,9 +981,9 @@ int main(int argc, char **argv) {
   auto simulation = WideSimulator{
     .map = map,
     .instructions = instructions,
-    .visualize = false,
+    .visualize = true,
     .collect_annotations = true,
-    .visualisation_delay = 50ms,
+    .visualisation_delay = 500ms,
   };
   simulation.map.render({});
   std::println();
