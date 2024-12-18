@@ -7,6 +7,7 @@
 #include <sstream>
 #include <string>
 
+
 using std::string;
 
 class Cell {
@@ -28,6 +29,7 @@ public:
   }
 
   bool is_passable() const { return m_content == Empty; }
+  bool is_empty() const { return m_content == Empty; }
   bool is_wall() const { return m_content == Wall; }
   bool is_falling_byte() const { return m_content >= 0; }
 
@@ -54,6 +56,8 @@ public:
   bool is_within_explicit_bounds(Coord2D c) const;
 
   void insert(Coord2D c, Cell val);
+
+  std::pair<Coord2D, Coord2D> bounds() const { return std::make_pair(m_top_left, m_bottom_right); }
 
   static std::pair<Coord2D, Coord2D> padded_bounds(const PaddedGrid& gr) {
     return std::make_pair(gr.m_top_left - Coord2D{1, 1}, gr.m_bottom_right + Coord2D{1, 1});
@@ -102,7 +106,7 @@ Cell PaddedGrid<Cell, pad_constructor>::operator[](int x, int y) const {
 template <class Cell, auto pad_constructor>
 bool PaddedGrid<Cell, pad_constructor>::is_within_explicit_bounds(Coord2D c) const {
   return c.x >= m_top_left.x && c.x <= m_bottom_right.x &&
-         c.y >= m_top_left.y && c.y <= m_top_left.y;
+         c.y >= m_top_left.y && c.y <= m_bottom_right.y;
 }
 
 using Grid = PaddedGrid<Cell, &Cell::wall>;
@@ -126,8 +130,8 @@ Grid parse_input(int width, int height, const std::string& str) {
 
 template <class SomeGrid, typename BoundsFunctor, typename RenderFunctor>
 std::string render_text_grid(SomeGrid &grid,
-                     BoundsFunctor render_bounds,
-                     RenderFunctor render_cell) {
+                             BoundsFunctor render_bounds,
+                             RenderFunctor render_cell) {
   std::ostringstream s;
   auto [top_left, bottom_right] = render_bounds(grid);
   for (int y = top_left.y; y <= bottom_right.y; ++y) {
@@ -164,10 +168,46 @@ void render(const Grid& grid) {
   std::cout << render_text_grid(grid, &Grid::padded_bounds, v.render_cell_f());
 }
 
+namespace pathfind_1 {
+  template <class Obs>
+  concept HasObsStep = requires(Obs t) { t.step(int{}, Coord2D{}); };
+
+  template <typename Obs> void obs_step(const Obs &obs, int step, Coord2D c) requires (!HasObsStep<Obs>) {};
+  template <typename Obs> void obs_step(Obs &obs, int step, Coord2D c) requires HasObsStep<Obs> {
+    obs.step(step, c);
+  }
+
+  class NullObs {};
+  const NullObs null_observer{};
+
+  template <class Obs> requires HasObsStep<Obs>
+  class IsFullObserver;
+
+  template <typename Obs = NullObs>
+  void pathfind_1(Grid &grid, Obs &obs = const_cast<Obs&>(null_observer)) {
+    // auto [start, target] = grid.bounds();
+    obs_step(obs, 1, {2, 3});
+  }
+}
+
+struct LogObs {
+  void step(int step, Coord2D cur) {
+    std::println("Starting step {} from {}", step, cur);
+  }
+};
+
+template <> class pathfind_1::IsFullObserver<LogObs>;
+
+
+
 int main(int argc, char **argv) {
   auto [width, height] = parse_n_numbers<int, 2>(cin_line());
 
   std::string input{read_whole_stdin()};
   auto grid = parse_input(width, height, input);
-  render(grid);
+  // render(grid);
+  pathfind_1::pathfind_1(grid);
+
+  LogObs logger;
+  pathfind_1::pathfind_1(grid, logger);
 }
