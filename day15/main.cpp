@@ -125,15 +125,6 @@ constexpr WideCell WideCell::empty() { return WideCell{WideCell::Value::Empty}; 
 constexpr WideCell WideCell::box_left() { return WideCell{WideCell::Value::BoxLeft}; };
 constexpr WideCell WideCell::box_right() { return WideCell{WideCell::Value::BoxRight}; };
 
-
-
-template <typename Mod>
-std::string colored(Mod mod, std::string_view s) {
-  std::ostringstream os;
-  os << termcolor::colorize << mod << s << termcolor::reset;
-  return os.str();
-}
-
 template <class MapClass>
 MapClass mk_map(typename MapClass::parse_input_t in) {
   MapClass result{};
