@@ -5,6 +5,7 @@ cc_library(
         "color.h",
         "debug.hpp",
         "coord.h",
+        "grid.hpp",
     ],
     srcs = [
         "lib.cpp",

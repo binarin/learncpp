@@ -36,7 +36,7 @@ inline std::vector<std::string> read_all_lines() {
   std::vector<std::string> result{};
   std::string line;
   while (std::getline(std::cin, line)) {
-    result.push_back(line);
+    result.push_back(std::move(line));
   }
   return result;
 }
