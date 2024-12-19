@@ -439,7 +439,7 @@ int main(int argc, char **argv) {
 
   VisualObserver vis{grid, 12};
   vis.render();
-  LogObserver logger{};
+  // LogObserver logger{};
 
   auto search = pathfind_1::Search(grid, vis);
   auto [start, target] = grid.bounds();

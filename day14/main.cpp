@@ -1,6 +1,7 @@
 #include "lib/lib.hpp"
 #include "lib/coord.h"
 #include <iostream>
+#include <numeric>
 #include <regex>
 #include <string>
 #include <ranges>

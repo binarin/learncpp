@@ -1,4 +1,5 @@
 #include "lib/coord.h"
+#include "lib/color.h"
 #include "lib/debug.hpp"
 #include "lib/lib.hpp"
 #include <chrono>
@@ -9,8 +10,7 @@
 #include <iostream>
 #include <istream>
 #include <map>
-#include <ranges>
-#include <sstream>
+#include <set>
 #include <stdexcept>
 #include <thread>
 #include <utility>
