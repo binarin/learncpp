@@ -32,6 +32,15 @@ inline std::string read_whole_stdin() {
   return std::string{std::istreambuf_iterator<char>(std::cin), std::istreambuf_iterator<char>()};
 }
 
+inline std::vector<std::string> read_all_lines() {
+  std::vector<std::string> result{};
+  std::string line;
+  while (std::getline(std::cin, line)) {
+    result.push_back(line);
+  }
+  return result;
+}
+
 template <typename NumType>
 struct NumParser {
   static NumType parse(const std::string&) {}
