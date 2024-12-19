@@ -3,16 +3,47 @@
 #include <cstdint>
 #include <format>
 #include <sstream>
+#include <array>
 
 struct Dir2D {
   enum Value : uint_fast8_t  {
     Up, Right, Down, Left
   } m_val;
 
+  Dir2D(const Dir2D &) = default;
+  Dir2D(Dir2D &&) = default;
+  Dir2D &operator=(const Dir2D &) = default;
+  Dir2D &operator=(Dir2D &&) = default;
+
+  // Dir2D(const Dir2D &o) : m_val{o.m_val} {}
+  // Dir2D(Dir2D &&o) : m_val{o.m_val} {};
+  // Dir2D &operator=(const Dir2D &o) { m_val = o.m_val; return *this; }
+  // Dir2D &operator=(Dir2D &&o) { m_val = o.m_val; return *this; }
+
   Dir2D(Value val) : m_val(val) {};
+
+  static constexpr std::array<Dir2D, 4> all();
+
+  int idx() const {
+    switch (m_val) {
+    case Up: return 0;
+    case Right: return 1;
+    case Down: return 2;
+    case Left: return 3;
+    }
+  }
 
   bool operator==(Value val) const { return m_val == val; }
   operator int() const { return static_cast<int>(m_val); }
+
+  Dir2D reverse() const {
+    switch (m_val) {
+    case Up: return Down;
+    case Right: return Left;
+    case Down: return Up;
+    case Left: return Right;
+    }
+  }
 
   Dir2D left() const {
     switch (m_val) {
@@ -41,6 +72,11 @@ struct Dir2D {
     }
   }
 };
+
+inline constexpr std::array<Dir2D, 4> Dir2D::all() {
+  return {Up, Right, Down, Left};
+};
+
 
 inline std::ostream& operator<<(std::ostream& os, Dir2D dir) {
   switch (dir.m_val) {
