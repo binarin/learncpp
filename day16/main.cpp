@@ -118,7 +118,6 @@ std::map<search_state_t, int> search(const Grid& grid, Coord2D start, Dir2D star
     std::vector<std::tuple<int, Dir2D, Coord2D>> candidates{
       {cur_cost + 1000, cur_dir.left(), cur_coord},
       {cur_cost + 1000, cur_dir.right(), cur_coord},
-      {cur_cost + 2000, cur_dir.left().left(), cur_coord},
       {cur_cost + 1, cur_dir, cur_coord.in_dir(cur_dir)},
     };
 
@@ -160,16 +159,81 @@ std::optional<int> best_score_at(const visited_t &visited, Coord2D target) {
   return best_cost;
 }
 
+std::vector<search_state_t> best_tiles_at(const visited_t &visited, Coord2D target) {
+  std::vector<search_state_t> best_tiles{};
+  int best_score{INT_MAX};
+  for (auto dir: Dir2D::all()) {
+    search_state_t ss{dir, target};
+    if (!visited.contains(ss)) {
+      continue;
+    }
+    int score = visited.at(ss);
+    if (score < best_score) {
+      best_tiles = {ss};
+      best_score = score;
+    } else if ( score == best_score )  {
+      best_tiles.push_back(ss);
+    }
+  }
+  return best_tiles;
+}
+
+template <typename T>
+void handle_optional_result(std::string_view message, std::optional<T> result) {
+  if (result) {
+    std::println("{}: {}", message, result.value());
+  } else {
+    throw std::runtime_error(std::format("{}: not present", message));
+  }
+}
+
+template <class Cont, typename T = Cont::value_type>
+T pop_back_and_return(Cont &cont) {
+  T ret = cont.back();
+  cont.pop_back();
+  return ret;
+}
+
+
+std::optional<int> all_paths_tiles(const visited_t &visited, Coord2D target) {
+  std::vector<search_state_t> queue = best_tiles_at(visited, target);
+  std::set<Coord2D> tiles{};
+  assert(queue.size() > 0);
+  while (!queue.empty()) {
+    auto ss{pop_back_and_return(queue)};
+    auto [cur_dir, cur_coord] = ss;
+    auto cur_cost = visited.at(ss);
+
+    tiles.insert(cur_coord);
+
+    search_state_t stepped_in_from{cur_dir, cur_coord.in_dir(cur_dir.reverse())};
+    search_state_t turned_left_from{cur_dir.right(), cur_coord};
+    search_state_t turned_right_from{cur_dir.left(), cur_coord};
+
+    std::vector<std::pair<search_state_t, int>> candidates{
+      {stepped_in_from, 1},
+      {turned_left_from, 1000},
+      {turned_right_from, 1000},
+    };
+    for (auto cand: candidates) {
+      auto [prev_ss, cost_delta] = cand;
+      if (!visited.contains(prev_ss)) {
+        continue;
+      }
+      if (visited.at(prev_ss) != cur_cost - cost_delta) {
+        continue;
+      }
+      queue.push_back(prev_ss);
+    }
+  }
+  return tiles.size();
+}
+
 int main(int argc, char **argv) {
   std::vector<std::string> input{read_all_lines()};
   auto [grid, start, target] = parse_input(input);
   auto visited = search(grid, start, Dir2D::Right, target);
-  auto maybe_best_cost = best_score_at(visited, target);
 
-  if (!maybe_best_cost) {
-    throw std::runtime_error("Path not found");
-  }
-  int best_cost = maybe_best_cost.value();
-
-  std::println("Best cost: {}", best_cost);
+  handle_optional_result("Best score", best_score_at(visited, target));
+  handle_optional_result("Num tiles in all best paths", all_paths_tiles(visited, target));
 }
