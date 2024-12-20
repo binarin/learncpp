@@ -97,11 +97,12 @@ struct PriorityQueue {
   }
 };
 
+using search_state_t = std::pair<Dir2D, Coord2D>;
+using visited_t = std::map<search_state_t, int>;
 
-std::pair<int, int> search(const Grid& grid, Coord2D start, Dir2D start_orientation, Coord2D target) {
-  using search_state_t = std::pair<Dir2D, Coord2D>;
+std::map<search_state_t, int> search(const Grid& grid, Coord2D start, Dir2D start_orientation, Coord2D target) {
   PriorityQueue<search_state_t> queue{};
-  std::map<search_state_t, int> visited{};
+  visited_t visited{};
 
   search_state_t initial_search_state{start_orientation, start};
   queue.enqueue(0, initial_search_state);
@@ -141,50 +142,34 @@ std::pair<int, int> search(const Grid& grid, Coord2D start, Dir2D start_orientat
     }
   }
 
-  auto best_search_states = [&](Coord2D coord) {
-    std::vector<search_state_t> result{};
-    int best_cost{INT_MAX};
-    for (auto d: Dir2D::all()) {
-      search_state_t ss{d, coord};
-      int cost = visited[ss];
-      if (cost < best_cost) {
-        best_cost = cost;
-        result = {ss};
-      } else if (cost == best_cost) {
-        result.push_back(ss);
-      }
+  return visited;
+}
+
+std::optional<int> best_score_at(const visited_t &visited, Coord2D target) {
+  int best_cost{INT_MAX};
+  for (auto d: Dir2D::all()) {
+    search_state_t ss{d, target};
+    if (!visited.contains(ss)) {
+      return {};
     }
-    return std::make_pair(best_cost, result);
-  };
-
-  auto [best_cost, best_states] = best_search_states(target);
-  std::set<Coord2D> best_tiles{};
-
-  while (!best_states.empty()) {
-    auto ss = best_states.back();
-    best_states.pop_back();
-
-    best_tiles.insert(ss.second);
-
-    auto [best_cost, candidates] = best_search_states(ss.second);
-    if (best_cost == 0) {
-      continue;
-    }
-
-    for(search_state_t c: candidates) {
-      auto [dir, coord] = c;
-      best_states.push_back({dir, coord.in_dir(dir.reverse())});
+    int cost = visited.at(ss);
+    if (cost < best_cost) {
+      best_cost = cost;
     }
   }
-
-  return {best_cost, best_tiles.size()};
+  return best_cost;
 }
 
 int main(int argc, char **argv) {
   std::vector<std::string> input{read_all_lines()};
   auto [grid, start, target] = parse_input(input);
-  auto [best_cost, num_tiles] = search(grid, start, Dir2D::Right, target);
+  auto visited = search(grid, start, Dir2D::Right, target);
+  auto maybe_best_cost = best_score_at(visited, target);
 
-  std::println("Reachable: {}", best_cost);
-  std::println("Tiles: {}", num_tiles);
+  if (!maybe_best_cost) {
+    throw std::runtime_error("Path not found");
+  }
+  int best_cost = maybe_best_cost.value();
+
+  std::println("Best cost: {}", best_cost);
 }
